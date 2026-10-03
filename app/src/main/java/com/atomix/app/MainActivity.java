@@ -1,6 +1,7 @@
 package com.atomix.app;
 
 import android.os.Bundle;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -34,6 +35,15 @@ public class MainActivity extends AppCompatActivity {
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
+        webSettings.setDatabaseEnabled(true);
+
+        // 🔥 GOOGLE LOGIN FIX 1: User-Agent badalna taaki Google block na kare
+        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+
+        // 🔥 GOOGLE LOGIN FIX 2: Firebase ke liye Third-Party Cookies allow karna
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -47,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
         webView.addJavascriptInterface(new WebAppInterface(), "Android");
         webView.loadUrl(APP_URL);
 
-        // MobileAds initialize hone ke baad hi ad load karein
+        // AdMob Initialize
         MobileAds.initialize(this, initializationStatus -> {
             loadAd();
         });
@@ -94,9 +104,8 @@ public class MainActivity extends AppCompatActivity {
                     mRewardedAd.setFullScreenContentCallback(new FullScreenContentCallback() {
                         @Override
                         public void onAdDismissedFullScreenContent() {
-                            // User ad band kar diya
                             mRewardedAd = null;
-                            loadAd(); // Agla ad load karo
+                            loadAd();
                         }
 
                         @Override
@@ -107,7 +116,6 @@ public class MainActivity extends AppCompatActivity {
                     });
 
                     mRewardedAd.show(MainActivity.this, rewardItem -> {
-                        // Reward mil gaya, website ko batao
                         webView.evaluateJavascript("javascript:window.onAndroidAdFinished(true)", null);
                     });
                 } else {
