@@ -1,5 +1,6 @@
 package com.atomix.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -9,8 +10,17 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
 
 import com.google.android.gms.ads.AdError;
 import com.google.android.gms.ads.AdRequest;
@@ -24,6 +34,11 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private RewardedAd mRewardedAd;
     private final String APP_URL = "https://atomix-one.vercel.app/";
+    // Aapki di hui Firebase Web Client ID
+    private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
+    
+    private GoogleSignInClient mGoogleSignInClient;
+    private ActivityResultLauncher<Intent> googleSignInLauncher;
     private boolean isLoadingAd = false;
 
     @Override
@@ -32,20 +47,44 @@ public class MainActivity extends AppCompatActivity {
         webView = new WebView(this);
         setContentView(webView);
 
+        // 1. Google Native Sign-In Setup (Choose an Account popup ke liye)
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(WEB_CLIENT_ID)
+                .requestEmail()
+                .build();
+        mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
+
+        googleSignInLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
+                    handleSignInResult(task);
+                }
+        );
+
+        // 2. WebView Settings
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
-
-        // 🔥 GOOGLE LOGIN FIX 1: User-Agent badalna taaki Google block na kare
         webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
 
-        // 🔥 GOOGLE LOGIN FIX 2: Firebase ke liye Third-Party Cookies allow karna
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                // Jaise hi website Google Login shuru karegi, hum phone ke accounts ka popup khol denge!
+                if (url.contains("accounts.google.com") || url.contains("firebaseapp.com/__/auth/handler")) {
+                    openGoogleSignIn();
+                    return true;
+                }
+                return false;
+            }
+
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
@@ -61,6 +100,36 @@ public class MainActivity extends AppCompatActivity {
         MobileAds.initialize(this, initializationStatus -> {
             loadAd();
         });
+    }
+
+    public void openGoogleSignIn() {
+        runOnUiThread(() -> {
+            // SignOut taaki har baar user ko account choose karne ka option mile
+            mGoogleSignInClient.signOut().addOnCompleteListener(task -> {
+                Intent signInIntent = mGoogleSignInClient.getSignInIntent();
+                googleSignInLauncher.launch(signInIntent);
+            });
+        });
+    }
+
+    private void handleSignInResult(Task<GoogleSignInAccount> completedTask) {
+        try {
+            GoogleSignInAccount account = completedTask.getResult(ApiException.class);
+            if (account != null) {
+                String idToken = account.getIdToken();
+                String email = account.getEmail();
+                String name = account.getDisplayName();
+                
+                // Account select hone ke baad website ko batana
+                webView.evaluateJavascript(
+                        "javascript:if(window.onNativeGoogleLoginSuccess){window.onNativeGoogleLoginSuccess('" 
+                                + idToken + "', '" + email + "', '" + name + "');}else{alert('Logged in as " + email + "');}", 
+                        null
+                );
+            }
+        } catch (ApiException e) {
+            Toast.makeText(this, "Sign-in cancelled or failed: " + e.getStatusCode(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void showCustomOfflineScreen(WebView view) {
@@ -123,6 +192,12 @@ public class MainActivity extends AppCompatActivity {
                     loadAd();
                 }
             });
+        }
+
+        // Direct button se Google popup kholne ke liye
+        @JavascriptInterface
+        public void openGoogleLogin() {
+            openGoogleSignIn();
         }
     }
 
