@@ -5,6 +5,9 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,6 +21,23 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
+
+    - name: Setup Fixed Keystore & Print SHA-1
+      run: |
+        mkdir -p ~/.android
+        if [ ! -f "app/debug.keystore" ]; then
+          keytool -genkeypair -alias androiddebugkey -keypass android -keystore app/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000 -keyalg RSA
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add app/debug.keystore
+          git commit -m "Save fixed keystore" || true
+          git push || true
+        fi
+        cp app/debug.keystore ~/.android/debug.keystore
+        echo "=========================================="
+        echo "AAPKA SHA-1 FINGERPRINT NICHE HAI:"
+        keytool -list -v -keystore app/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep "SHA1:"
+        echo "=========================================="
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
