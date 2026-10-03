@@ -9,10 +9,23 @@ android {
         versionCode 1
         versionName "1.0"
     }
+    // 🔥 PERMANENT FIXED SIGNING CONFIG
+    signingConfigs {
+        debug {
+            storeFile file("debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
 }
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.gms:play-services-ads:22.6.0'
-    // 🔥 Google Account Picker (Native Sign-In) Library
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
 }
