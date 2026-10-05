@@ -1,6 +1,7 @@
 package com.atomix.app;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -47,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
         webView = new WebView(this);
         setContentView(webView);
 
-        // 1. Google Native Sign-In Setup (Choose an Account popup ke liye)
+        // 1. Google Native Sign-In Setup
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(WEB_CLIENT_ID)
                 .requestEmail()
@@ -67,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
+        webSettings.setSupportMultipleWindows(true);
         webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
 
         CookieManager cookieManager = CookieManager.getInstance();
@@ -77,18 +79,52 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                // Jaise hi website Google Login shuru karegi, hum phone ke accounts ka popup khol denge!
+
+                // 1. Google Login Handle
                 if (url.contains("accounts.google.com") || url.contains("firebaseapp.com/__/auth/handler")) {
                     openGoogleSignIn();
                     return true;
                 }
+
+                // ⭐ 2. TELEGRAM & EXTERNAL APPS HANDLE (CRASH BAND KAREGA) ⭐
+                if (url.startsWith("tg:") || url.startsWith("intent:") || url.contains("t.me/") || url.contains("telegram.me/")) {
+                    try {
+                        Intent intent;
+                        if (url.startsWith("intent:")) {
+                            intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                        } else {
+                            intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        }
+                        if (intent != null) {
+                            view.getContext().startActivity(intent);
+                            return true;
+                        }
+                    } catch (Exception e) {
+                        // Agar Telegram App phone me nahi hai toh Chrome me kholega
+                        try {
+                            String webFallback = url.replace("tg://resolve?domain=", "https://t.me/");
+                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webFallback));
+                            startActivity(browserIntent);
+                            return true;
+                        } catch (Exception ex) {
+                            Toast.makeText(MainActivity.this, "Cannot open Telegram link", Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+                    }
+                    return true;
+                }
+
                 return false;
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
-                    showCustomOfflineScreen(view);
+                    String failingUrl = request.getUrl().toString();
+                    // Agar Telegram ka link tha toh offline screen mat dikhao
+                    if (!failingUrl.startsWith("tg:") && !failingUrl.startsWith("intent:") && !failingUrl.contains("t.me/")) {
+                        showCustomOfflineScreen(view);
+                    }
                 }
             }
         });
@@ -104,7 +140,6 @@ public class MainActivity extends AppCompatActivity {
 
     public void openGoogleSignIn() {
         runOnUiThread(() -> {
-            // SignOut taaki har baar user ko account choose karne ka option mile
             mGoogleSignInClient.signOut().addOnCompleteListener(task -> {
                 Intent signInIntent = mGoogleSignInClient.getSignInIntent();
                 googleSignInLauncher.launch(signInIntent);
@@ -120,7 +155,6 @@ public class MainActivity extends AppCompatActivity {
                 String email = account.getEmail();
                 String name = account.getDisplayName();
                 
-                // Account select hone ke baad website ko batana
                 webView.evaluateJavascript(
                         "javascript:if(window.onNativeGoogleLoginSuccess){window.onNativeGoogleLoginSuccess('" 
                                 + idToken + "', '" + email + "', '" + name + "');}else{alert('Logged in as " + email + "');}", 
@@ -198,6 +232,19 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void openGoogleLogin() {
             openGoogleSignIn();
+        }
+
+        // ⭐ Bahar kisi bhi browser ya app ko kholne ke liye ⭐
+        @JavascriptInterface
+        public void openBrowser(String url) {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Cannot open link", Toast.LENGTH_SHORT).show();
+                }
+            });
         }
     }
 
