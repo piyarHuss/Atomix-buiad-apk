@@ -3,8 +3,11 @@ package com.atomix.app;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Message;
+import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -35,7 +38,6 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private RewardedAd mRewardedAd;
     private final String APP_URL = "https://atomix-one.vercel.app/";
-    // Aapki di hui Firebase Web Client ID
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
     private GoogleSignInClient mGoogleSignInClient;
@@ -45,6 +47,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Monetag video/banner ads smooth render hone ke liye
+        getWindow().setFlags(
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        );
+
         webView = new WebView(this);
         setContentView(webView);
 
@@ -63,17 +72,53 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // 2. WebView Settings
+        // 2. WebView Settings (Configured for Monetag Ads)
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
-        webSettings.setSupportMultipleWindows(true);
-        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+        webSettings.setLoadsImagesAutomatically(true);
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true); // Ads ke popup ke liye
+        webSettings.setSupportMultipleWindows(true); 
+        
+        // Mixed content allow karein taaki ad domains block na hon
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        
+        // Standard Chrome Mobile User-Agent
+        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
 
+        // Cookies enable karein (Ad impressions track karne ke liye zaroori)
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
+
+        // Monetag Popups aur Dialogs handle karne ke liye WebChromeClient
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                WebView newWebView = new WebView(MainActivity.this);
+                WebSettings newSettings = newWebView.getSettings();
+                newSettings.setJavaScriptEnabled(true);
+                
+                newWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
+                        // Naye popup window ka link browser ya main webview me bhej dega
+                        String targetUrl = request.getUrl().toString();
+                        try {
+                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
+                            startActivity(intent);
+                        } catch (Exception ignored) {}
+                        return true;
+                    }
+                });
+
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(newWebView);
+                resultMsg.sendToTarget();
+                return true;
+            }
+        });
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -86,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
-                // ⭐ 2. TELEGRAM & EXTERNAL APPS HANDLE (CRASH BAND KAREGA) ⭐
+                // 2. TELEGRAM & EXTERNAL APPS HANDLE
                 if (url.startsWith("tg:") || url.startsWith("intent:") || url.contains("t.me/") || url.contains("telegram.me/")) {
                     try {
                         Intent intent;
@@ -100,7 +145,6 @@ public class MainActivity extends AppCompatActivity {
                             return true;
                         }
                     } catch (Exception e) {
-                        // Agar Telegram App phone me nahi hai toh Chrome me kholega
                         try {
                             String webFallback = url.replace("tg://resolve?domain=", "https://t.me/");
                             Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webFallback));
@@ -114,6 +158,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
+                // Normal web navigation (including Monetag redirects)
                 return false;
             }
 
@@ -121,7 +166,6 @@ public class MainActivity extends AppCompatActivity {
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
                     String failingUrl = request.getUrl().toString();
-                    // Agar Telegram ka link tha toh offline screen mat dikhao
                     if (!failingUrl.startsWith("tg:") && !failingUrl.startsWith("intent:") && !failingUrl.contains("t.me/")) {
                         showCustomOfflineScreen(view);
                     }
@@ -228,13 +272,11 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // Direct button se Google popup kholne ke liye
         @JavascriptInterface
         public void openGoogleLogin() {
             openGoogleSignIn();
         }
 
-        // ⭐ Bahar kisi bhi browser ya app ko kholne ke liye ⭐
         @JavascriptInterface
         public void openBrowser(String url) {
             runOnUiThread(() -> {
