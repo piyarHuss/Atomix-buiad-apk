@@ -84,35 +84,50 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
 
-        // Popups aur Multiple Windows
+        // *** MONETAG ADS ENABLE KARNE KE LIYE CRITICAL SETTINGS ***
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setSupportMultipleWindows(true);
-
-        // Mixed content allow karein taaki ads block na hon
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        
+        // Monetag verification ke liye standard User-Agent bohot zaroori hai
+        webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
-        // Chrome Mobile User-Agent
-        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
-
-        // Cookies enable
+        // Cookies enable (Monetag tracking ke liye required)
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // WebChromeClient (Popups/Ads ke naye tabs handle karne ke liye)
+        // *** MONETAG VIGNETTE/POPUP ADS HANDLE KARNE KE LIYE ***
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
                 WebView newWebView = new WebView(MainActivity.this);
                 WebSettings newSettings = newWebView.getSettings();
                 newSettings.setJavaScriptEnabled(true);
+                newSettings.setDomStorageEnabled(true);
 
                 newWebView.setWebViewClient(new WebViewClient() {
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
                         String targetUrl = request.getUrl().toString();
+                        
+                        // Handle intent and market links properly in popups
+                        if (targetUrl.startsWith("intent:") || targetUrl.startsWith("market:") || targetUrl.startsWith("tg:")) {
+                            try {
+                                Intent intent;
+                                if (targetUrl.startsWith("intent:")) {
+                                    intent = Intent.parseUri(targetUrl, Intent.URI_INTENT_SCHEME);
+                                } else {
+                                    intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
+                                }
+                                startActivity(intent);
+                            } catch (Exception ignored) {}
+                            return true;
+                        }
+                        
+                        // Ad URLs open in normal browser
                         try {
                             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
                             startActivity(intent);
@@ -134,8 +149,16 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
 
-                // Monetag Vignette Ad Script Injection
+                // Monetag Tag Injection (Added multiple formats just in case)
                 String monetagScript = 
+                    "var meta = document.createElement('meta');" +
+                    "meta.name = 'monetag';" +
+                    "meta.content = '6c2cce59c8d9495f201a172a9df79dc2';" +
+                    "document.getElementsByTagName('head')[0].appendChild(meta);" +
+                    
+                    "(function(s){s.dataset.zone='11984536',s.src='https://al5sm.com/tag.min.js'})" +
+                    "([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));" +
+                    
                     "(function(s){s.dataset.zone='11989369',s.src='https://n6wxm.com/vignette.min.js'})" +
                     "([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));";
 
@@ -179,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
-                // Website aur Monetag redirects WebView me chalenge
+                // monetag and standard web links handled by webview
                 return false;
             }
 
@@ -295,29 +318,4 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
-        public void openGoogleLogin() {
-            openGoogleSignIn();
-        }
-
-        @JavascriptInterface
-        public void openBrowser(String url) {
-            runOnUiThread(() -> {
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
-                } catch (Exception e) {
-                    Toast.makeText(MainActivity.this, "Cannot open link", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
-    }
-}
+        p
