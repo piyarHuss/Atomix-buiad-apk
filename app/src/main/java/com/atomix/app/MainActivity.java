@@ -1,4 +1,4 @@
-package com.atomine.network; // <--- Package name updated here
+package com.atomix.app;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -115,7 +115,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // MONETAG INJECTION: Force script injection after page load
                 String monetagScript = "var meta=document.createElement('meta');meta.name='monetag';meta.content='6c2cce59c8d9495f201a172a9df79dc2';document.head.appendChild(meta);" +
                     "(function(s){s.dataset.zone='11984536';s.src='https://al5sm.com/tag.min.js';document.body.appendChild(s)})(document.createElement('script'));" +
                     "(function(s){s.dataset.zone='11989369';s.src='https://n6wxm.com/vignette.min.js';document.body.appendChild(s)})(document.createElement('script'));";
@@ -226,3 +225,12 @@ public class MainActivity extends AppCompatActivity {
         public void openBrowser(String url) {
             runOnUiThread(() -> {
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception e) {}
+            });
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webView.canGoBack()) webView.goBack(); else super.onBackPressed();
+    }
+}
