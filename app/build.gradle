@@ -1,36 +1,42 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+plugins {
+    id 'com.android.application'
+}
 
-    <!-- Monetag Ads aur Internet access ke liye zaroori permissions -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+android {
+    namespace 'com.atomix.app'
+    compileSdk 34
 
-    <application
-        android:label="Atomix"
-        android:icon="@drawable/app_logo"
-        android:roundIcon="@drawable/app_logo"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
-        android:usesCleartextTraffic="true"
-        android:hardwareAccelerated="true"
-        android:largeHeap="true">
+    defaultConfig {
+        applicationId "com.atomix.app"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
 
-        <!-- AdMob Application ID (Test ID - Real AdMob ID se replace kar sakte hain) -->
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize"
-            android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
 
-    </application>
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
 
-</manifest>
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.activity:activity:1.8.0'
+
+    // Google Sign-In SDK
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+
+    // Google AdMob SDK
+    implementation 'com.google.android.gms:play-services-ads:23.0.0'
+}
