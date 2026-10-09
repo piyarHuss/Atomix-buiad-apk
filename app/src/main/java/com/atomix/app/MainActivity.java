@@ -1,4 +1,4 @@
-package com.atomine.app;
+package com.atomine.network; // <--- Package name updated here
 
 import android.content.Intent;
 import android.net.Uri;
@@ -226,12 +226,3 @@ public class MainActivity extends AppCompatActivity {
         public void openBrowser(String url) {
             runOnUiThread(() -> {
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception e) {}
-            });
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) webView.goBack(); else super.onBackPressed();
-    }
-}
