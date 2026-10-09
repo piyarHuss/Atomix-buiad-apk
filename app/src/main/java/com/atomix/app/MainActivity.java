@@ -1,4 +1,4 @@
-package com.atomix.app;
+package com.atomine.app;
 
 import android.content.Intent;
 import android.net.Uri;
