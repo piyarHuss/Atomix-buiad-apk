@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Message;
+import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -14,6 +15,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -48,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Monetag video/banner ads smooth render hone ke liye
+        // Monetag video/banner ads ko smooth render karne ke liye Hardware Acceleration
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
@@ -72,38 +74,45 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // 2. WebView Settings (Configured for Monetag Ads)
+        // 2. WebView Settings (Monetag ads bypass karne ke liye configured)
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
         webSettings.setLoadsImagesAutomatically(true);
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true); // Ads ke popup ke liye
-        webSettings.setSupportMultipleWindows(true); 
-        
-        // Mixed content allow karein taaki ad domains block na hon
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        
-        // Standard Chrome Mobile User-Agent
-        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
+        webSettings.setMediaPlaybackRequiresUserGesture(false);
 
-        // Cookies enable karein (Ad impressions track karne ke liye zaroori)
+        // Popups aur Multiple Windows allow karein (Monetag Direct link & Popunders ke liye)
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        webSettings.setSupportMultipleWindows(true);
+
+        // Mixed Content allow karein taaki ad redirects block na hon
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+
+        // Chrome Mobile ka Real User-Agent (Monetag WebView samajh kar ad block nahi karega)
+        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
+
+        // Cookies enable karein (Ad impressions aur sessions ke liye zaroori)
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
-        // Monetag Popups aur Dialogs handle karne ke liye WebChromeClient
+        // WebView hardware layer enable
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+        // WebChromeClient (Popunders aur windows handle karne ke liye)
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
                 WebView newWebView = new WebView(MainActivity.this);
                 WebSettings newSettings = newWebView.getSettings();
                 newSettings.setJavaScriptEnabled(true);
-                
+
                 newWebView.setWebViewClient(new WebViewClient() {
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
-                        // Naye popup window ka link browser ya main webview me bhej dega
                         String targetUrl = request.getUrl().toString();
                         try {
                             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
@@ -131,7 +140,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
-                // 2. TELEGRAM & EXTERNAL APPS HANDLE
+                // 2. Telegram & External App Links
                 if (url.startsWith("tg:") || url.startsWith("intent:") || url.contains("t.me/") || url.contains("telegram.me/")) {
                     try {
                         Intent intent;
@@ -158,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
-                // Normal web navigation (including Monetag redirects)
+                // Normal URLs aur Monetag redirects WebView me chalenge
                 return false;
             }
 
