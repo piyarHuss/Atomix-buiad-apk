@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Monetag video/banner ads ko smooth render karne ke liye Hardware Acceleration
+        // Hardware Acceleration
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // 2. WebView Settings (Monetag ads bypass karne ke liye configured)
+        // 2. WebView Settings
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
@@ -84,25 +84,24 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
 
-        // Popups aur Multiple Windows allow karein (Monetag Direct link & Popunders ke liye)
+        // Popups aur Multiple Windows
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setSupportMultipleWindows(true);
 
-        // Mixed Content allow karein taaki ad redirects block na hon
+        // Mixed content allow karein taaki ads block na hon
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        // Chrome Mobile ka Real User-Agent (Monetag WebView samajh kar ad block nahi karega)
+        // Chrome Mobile User-Agent
         webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
 
-        // Cookies enable karein (Ad impressions aur sessions ke liye zaroori)
+        // Cookies enable
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
-        // WebView hardware layer enable
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // WebChromeClient (Popunders aur windows handle karne ke liye)
+        // WebChromeClient (Popups/Ads ke naye tabs handle karne ke liye)
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -130,6 +129,19 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.setWebViewClient(new WebViewClient() {
+            // MONETAG ADS SCRIPT YAHAN AUTO-INJECT HOGA JAB PAGE LOAD HOGA
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+
+                // Monetag Vignette Ad Script Injection
+                String monetagScript = 
+                    "(function(s){s.dataset.zone='11989369',s.src='https://n6wxm.com/vignette.min.js'})" +
+                    "([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));";
+
+                view.evaluateJavascript(monetagScript, null);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
@@ -140,8 +152,10 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
-                // 2. Telegram & External App Links
-                if (url.startsWith("tg:") || url.startsWith("intent:") || url.contains("t.me/") || url.contains("telegram.me/")) {
+                // 2. Play Store Ads, External Market aur Telegram Intent Links Handle
+                if (url.startsWith("market:") || url.startsWith("intent:") || url.startsWith("tg:") || 
+                    url.startsWith("whatsapp:") || url.contains("play.google.com/store") || 
+                    url.contains("t.me/") || url.contains("telegram.me/")) {
                     try {
                         Intent intent;
                         if (url.startsWith("intent:")) {
@@ -155,19 +169,17 @@ public class MainActivity extends AppCompatActivity {
                         }
                     } catch (Exception e) {
                         try {
-                            String webFallback = url.replace("tg://resolve?domain=", "https://t.me/");
-                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webFallback));
-                            startActivity(browserIntent);
-                            return true;
-                        } catch (Exception ex) {
-                            Toast.makeText(MainActivity.this, "Cannot open Telegram link", Toast.LENGTH_SHORT).show();
-                            return true;
-                        }
+                            if (url.contains("t.me/") || url.contains("tg:")) {
+                                String webFallback = url.replace("tg://resolve?domain=", "https://t.me/");
+                                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(webFallback)));
+                            }
+                        } catch (Exception ignored) {}
+                        return true;
                     }
                     return true;
                 }
 
-                // Normal URLs aur Monetag redirects WebView me chalenge
+                // Website aur Monetag redirects WebView me chalenge
                 return false;
             }
 
@@ -175,7 +187,8 @@ public class MainActivity extends AppCompatActivity {
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
                     String failingUrl = request.getUrl().toString();
-                    if (!failingUrl.startsWith("tg:") && !failingUrl.startsWith("intent:") && !failingUrl.contains("t.me/")) {
+                    if (!failingUrl.startsWith("tg:") && !failingUrl.startsWith("intent:") && 
+                        !failingUrl.startsWith("market:") && !failingUrl.contains("t.me/")) {
                         showCustomOfflineScreen(view);
                     }
                 }
