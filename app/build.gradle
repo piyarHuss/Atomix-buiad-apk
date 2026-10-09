@@ -1,6 +1,6 @@
 plugins { id 'com.android.application' }
 android {
-    namespace 'com.atomix.app'
+    namespace 'com.atomine.app'
     compileSdk 34
     defaultConfig {
         applicationId "com.atomix.app"
