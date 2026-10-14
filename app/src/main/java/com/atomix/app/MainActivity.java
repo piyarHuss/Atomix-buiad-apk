@@ -1,7 +1,12 @@
 package com.atomix.app;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.view.View;
@@ -48,6 +53,12 @@ public class MainActivity extends AppCompatActivity {
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         );
 
+        // CHECK VPN AT APP LAUNCH
+        if (isVpnConnected()) {
+            showVpnBlockScreen();
+            return;
+        }
+
         webView = new WebView(this);
         setContentView(webView);
 
@@ -76,22 +87,20 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
 
-        // *** MONETAG ADS ENABLE KARNE KE LIYE CRITICAL SETTINGS ***
+        // *** MONETAG ADS SETTINGS ***
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setSupportMultipleWindows(true);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        
-        // Monetag verification ke liye standard User-Agent bohot zaroori hai
         webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
-        // Cookies enable (Monetag tracking ke liye required)
+        // Cookies enable
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // *** MONETAG VIGNETTE/POPUP ADS HANDLE KARNE KE LIYE ***
+        // Popups and Monetag Ad Redirects Handler
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -105,7 +114,6 @@ public class MainActivity extends AppCompatActivity {
                     public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
                         String targetUrl = request.getUrl().toString();
                         
-                        // Handle intent and market links properly in popups
                         if (targetUrl.startsWith("intent:") || targetUrl.startsWith("market:") || targetUrl.startsWith("tg:")) {
                             try {
                                 Intent intent;
@@ -119,7 +127,6 @@ public class MainActivity extends AppCompatActivity {
                             return true;
                         }
                         
-                        // Ad URLs open in normal browser
                         try {
                             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
                             startActivity(intent);
@@ -136,30 +143,15 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.setWebViewClient(new WebViewClient() {
-            // MONETAG ADS SCRIPT YAHAN AUTO-INJECT HOGA JAB PAGE LOAD HOGA
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-
-                // Monetag Tag Injection
-                String monetagScript = 
-                    "var meta = document.createElement('meta');" +
-                    "meta.name = 'monetag';" +
-                    "meta.content = '6c2cce59c8d9495f201a172a9df79dc2';" +
-                    "document.getElementsByTagName('head')[0].appendChild(meta);" +
-                    
-                    "(function(s){s.dataset.zone='11984536',s.src='https://al5sm.com/tag.min.js'})" +
-                    "([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));" +
-                    
-                    "(function(s){s.dataset.zone='11989369',s.src='https://n6wxm.com/vignette.min.js'})" +
-                    "([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));";
-
-                view.evaluateJavascript(monetagScript, null);
-            }
-
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
+
+                // Check VPN on link clicks too
+                if (isVpnConnected()) {
+                    showVpnBlockScreen();
+                    return true;
+                }
 
                 // 1. Google Login Handle
                 if (url.contains("accounts.google.com") || url.contains("firebaseapp.com/__/auth/handler")) {
@@ -167,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
-                // 2. Play Store Ads, External Market aur Telegram Intent Links Handle
+                // 2. Play Store, Telegram, WhatsApp, External Intents
                 if (url.startsWith("market:") || url.startsWith("intent:") || url.startsWith("tg:") || 
                     url.startsWith("whatsapp:") || url.contains("play.google.com/store") || 
                     url.contains("t.me/") || url.contains("telegram.me/")) {
@@ -213,6 +205,43 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
+    // 🔒 NATIVE ANDROID SYSTEM VPN DETECTION
+    public boolean isVpnConnected() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Network activeNetwork = cm.getActiveNetwork();
+                    if (activeNetwork != null) {
+                        NetworkCapabilities caps = cm.getNetworkCapabilities(activeNetwork);
+                        return caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
+                    }
+                } else {
+                    android.net.NetworkInfo networkInfo = cm.getNetworkInfo(ConnectivityManager.TYPE_VPN);
+                    return networkInfo != null && networkInfo.isConnected();
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
+    // Full-screen native VPN blocker
+    private void showVpnBlockScreen() {
+        String vpnHtml = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+            + "<style>body{background:#050711;color:#ff5c7a;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;box-sizing:border-box}"
+            + "h1{font-size:24px;margin-bottom:8px}p{color:#a5b1d9;font-size:14px;max-width:320px;line-height:1.5}"
+            + ".btn{background:#2fe08e;color:#05140d;border:none;border-radius:12px;padding:12px 25px;font-weight:800;margin-top:20px;cursor:pointer}</style></head><body>"
+            + "<h1>⛔ VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and restart the app.</p>"
+            + "<button class=\"btn\" onclick=\"location.reload()\">RETRY</button></body></html>";
+
+        if (webView == null) {
+            webView = new WebView(this);
+            setContentView(webView);
+        }
+        webView.getSettings().setJavaScriptEnabled(true);
+        webView.loadDataWithBaseURL(null, vpnHtml, "text/html", "UTF-8", null);
+    }
+
     public void openGoogleSignIn() {
         runOnUiThread(() -> {
             mGoogleSignInClient.signOut().addOnCompleteListener(task -> {
@@ -254,15 +283,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
+        // JS call karega check karne ke liye ki VPN on hai ya nahi
+        @JavascriptInterface
+        public boolean isVpnActive() {
+            return isVpnConnected();
+        }
+
         @JavascriptInterface
         public void showAd() {
             runOnUiThread(() -> {
                 try {
-                    // Monetag Direct Ad Link open karega
+                    // Check again before showing ad
+                    if (isVpnConnected()) {
+                        showVpnBlockScreen();
+                        return;
+                    }
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(MONETAG_DIRECT_LINK));
                     startActivity(intent);
 
-                    // Website ko callback bhejna (Ad dekha gaya)
                     webView.evaluateJavascript("javascript:if(window.onAndroidAdFinished){window.onAndroidAdFinished(true);}", null);
                 } catch (Exception e) {
                     Toast.makeText(MainActivity.this, "Failed to open Ad Link", Toast.LENGTH_SHORT).show();
@@ -289,8 +327,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // User agar app background karke VPN on karke wapas aayega to bhi detect ho jayega
+        if (isVpnConnected()) {
+            showVpnBlockScreen();
+        }
+    }
+
+    @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
+        if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
             super.onBackPressed();
