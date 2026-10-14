@@ -8,7 +8,6 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Message;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
@@ -37,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
     private final String APP_URL = "https://atomix-one.vercel.app/";
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
-    // Monetag Direct Link
+    // Monetag Direct Link (Sirf button click par chalega)
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
     private GoogleSignInClient mGoogleSignInClient;
@@ -86,11 +85,6 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
-
-        // *** MONETAG ADS SETTINGS ***
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        webSettings.setSupportMultipleWindows(true);
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
         // Cookies enable
@@ -99,48 +93,7 @@ public class MainActivity extends AppCompatActivity {
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-
-        // Popups and Monetag Ad Redirects Handler
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
-                WebView newWebView = new WebView(MainActivity.this);
-                WebSettings newSettings = newWebView.getSettings();
-                newSettings.setJavaScriptEnabled(true);
-                newSettings.setDomStorageEnabled(true);
-
-                newWebView.setWebViewClient(new WebViewClient() {
-                    @Override
-                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
-                        String targetUrl = request.getUrl().toString();
-                        
-                        if (targetUrl.startsWith("intent:") || targetUrl.startsWith("market:") || targetUrl.startsWith("tg:")) {
-                            try {
-                                Intent intent;
-                                if (targetUrl.startsWith("intent:")) {
-                                    intent = Intent.parseUri(targetUrl, Intent.URI_INTENT_SCHEME);
-                                } else {
-                                    intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
-                                }
-                                startActivity(intent);
-                            } catch (Exception ignored) {}
-                            return true;
-                        }
-                        
-                        try {
-                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
-                            startActivity(intent);
-                        } catch (Exception ignored) {}
-                        return true;
-                    }
-                });
-
-                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
-                transport.setWebView(newWebView);
-                resultMsg.sendToTarget();
-                return true;
-            }
-        });
+        webView.setWebChromeClient(new WebChromeClient());
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -283,7 +236,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
-        // JS call karega check karne ke liye ki VPN on hai ya nahi
         @JavascriptInterface
         public boolean isVpnActive() {
             return isVpnConnected();
@@ -293,7 +245,6 @@ public class MainActivity extends AppCompatActivity {
         public void showAd() {
             runOnUiThread(() -> {
                 try {
-                    // Check again before showing ad
                     if (isVpnConnected()) {
                         showVpnBlockScreen();
                         return;
@@ -329,7 +280,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // User agar app background karke VPN on karke wapas aayega to bhi detect ho jayega
         if (isVpnConnected()) {
             showVpnBlockScreen();
         }
