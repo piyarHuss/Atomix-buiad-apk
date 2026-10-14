@@ -18,7 +18,6 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -28,23 +27,16 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 
-import com.google.android.gms.ads.AdError;
-import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.FullScreenContentCallback;
-import com.google.android.gms.ads.LoadAdError;
-import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.rewarded.RewardedAd;
-import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
-
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
-    private RewardedAd mRewardedAd;
     private final String APP_URL = "https://atomix-one.vercel.app/";
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
+    // Monetag Direct Link
+    private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
+    
     private GoogleSignInClient mGoogleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
-    private boolean isLoadingAd = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -149,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
 
-                // Monetag Tag Injection (Added multiple formats just in case)
+                // Monetag Tag Injection
                 String monetagScript = 
                     "var meta = document.createElement('meta');" +
                     "meta.name = 'monetag';" +
@@ -202,7 +194,6 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
-                // monetag and standard web links handled by webview
                 return false;
             }
 
@@ -220,11 +211,6 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new WebAppInterface(), "Android");
         webView.loadUrl(APP_URL);
-
-        // AdMob Initialize
-        MobileAds.initialize(this, initializationStatus -> {
-            loadAd();
-        });
     }
 
     public void openGoogleSignIn() {
@@ -267,52 +253,19 @@ public class MainActivity extends AppCompatActivity {
         view.loadDataWithBaseURL(APP_URL, offlineHtml, "text/html", "UTF-8", null);
     }
 
-    private void loadAd() {
-        if (isLoadingAd || mRewardedAd != null) return;
-        isLoadingAd = true;
-
-        AdRequest adRequest = new AdRequest.Builder().build();
-        RewardedAd.load(this, "ca-app-pub-3940256099942544/5224354917", adRequest,
-            new RewardedAdLoadCallback() {
-                @Override
-                public void onAdLoaded(@NonNull RewardedAd ad) {
-                    mRewardedAd = ad;
-                    isLoadingAd = false;
-                }
-
-                @Override
-                public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                    mRewardedAd = null;
-                    isLoadingAd = false;
-                }
-            });
-    }
-
     public class WebAppInterface {
         @JavascriptInterface
         public void showAd() {
             runOnUiThread(() -> {
-                if (mRewardedAd != null) {
-                    mRewardedAd.setFullScreenContentCallback(new FullScreenContentCallback() {
-                        @Override
-                        public void onAdDismissedFullScreenContent() {
-                            mRewardedAd = null;
-                            loadAd();
-                        }
+                try {
+                    // Monetag Direct Ad Link open karega
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(MONETAG_DIRECT_LINK));
+                    startActivity(intent);
 
-                        @Override
-                        public void onAdFailedToShowFullScreenContent(AdError adError) {
-                            mRewardedAd = null;
-                            loadAd();
-                        }
-                    });
-
-                    mRewardedAd.show(MainActivity.this, rewardItem -> {
-                        webView.evaluateJavascript("javascript:window.onAndroidAdFinished(true)", null);
-                    });
-                } else {
-                    Toast.makeText(MainActivity.this, "Ad is loading, please try again in 5 seconds...", Toast.LENGTH_SHORT).show();
-                    loadAd();
+                    // Website ko callback bhejna (Ad dekha gaya)
+                    webView.evaluateJavascript("javascript:if(window.onAndroidAdFinished){window.onAndroidAdFinished(true);}", null);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Failed to open Ad Link", Toast.LENGTH_SHORT).show();
                 }
             });
         }
