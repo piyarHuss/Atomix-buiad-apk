@@ -1,1 +1,48 @@
-
+{
+  "project_info": {
+    "project_number": "268858397066",
+    "firebase_url": "https://atomic-app-55e9b-default-rtdb.firebaseio.com",
+    "project_id": "atomic-app-55e9b",
+    "storage_bucket": "atomic-app-55e9b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:268858397066:android:195cca1a84ca9c77d2b873",
+        "android_client_info": {
+          "package_name": "com.atomix.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "268858397066-kcnlqe3b2hi3vid3gdcliutisc1u927t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.atomix.app",
+            "certificate_hash": "71dbf2d52d1b5c0b292ecf51f4a45a20d60e1b0a"
+          }
+        },
+        {
+          "client_id": "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6H0o8UXECjL1Xb_tXQuSbpAGAf4p-8wA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
