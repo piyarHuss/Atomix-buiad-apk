@@ -30,9 +30,11 @@ import com.google.android.gms.tasks.Task;
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private final String APP_URL = "https://atomix-one.vercel.app/";
+    
+    // Make sure this is the WEB Client ID (from Firebase > Authentication > Google > Web SDK config)
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
-    // Monetag Direct Link
+    // Monetag Direct Link (Sirf task reward ke liye, Banner/Vignette removed)
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
     private GoogleSignInClient mGoogleSignInClient;
@@ -51,19 +53,12 @@ public class MainActivity extends AppCompatActivity {
         webView = new WebView(this);
         setContentView(webView);
 
-        // 1. Google Native Sign-In Setup (Smart Configuration)
-        try {
-            GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestIdToken(WEB_CLIENT_ID)
-                    .requestEmail()
-                    .build();
-            mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
-        } catch (Exception e) {
-            GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .build();
-            mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
-        }
+        // 1. Google Native Sign-In Setup
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(WEB_CLIENT_ID)
+                .requestEmail()
+                .build();
+        mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
         googleSignInLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -82,51 +77,25 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
-
-        // *** MONETAG ADS ENABLE KARNE KE LIYE CRITICAL SETTINGS ***
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        webSettings.setSupportMultipleWindows(true);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        
-        // Monetag verification ke liye standard User-Agent bohot zaroori hai
         webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
-        // Cookies enable (Monetag tracking ke liye required)
+        // Enable Cookies
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // *** MONETAG VIGNETTE/POPUP ADS HANDLE KARNE KE LIYE ***
+        // External Link & Popup Window Handler (Cleaned - Monetag popups removed)
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
                 WebView newWebView = new WebView(MainActivity.this);
-                WebSettings newSettings = newWebView.getSettings();
-                newSettings.setJavaScriptEnabled(true);
-                newSettings.setDomStorageEnabled(true);
-
                 newWebView.setWebViewClient(new WebViewClient() {
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
                         String targetUrl = request.getUrl().toString();
-                        
-                        // Handle intent and market links properly in popups
-                        if (targetUrl.startsWith("intent:") || targetUrl.startsWith("market:") || targetUrl.startsWith("tg:")) {
-                            try {
-                                Intent intent;
-                                if (targetUrl.startsWith("intent:")) {
-                                    intent = Intent.parseUri(targetUrl, Intent.URI_INTENT_SCHEME);
-                                } else {
-                                    intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
-                                }
-                                startActivity(intent);
-                            } catch (Exception ignored) {}
-                            return true;
-                        }
-                        
-                        // Ad URLs open in normal browser
                         try {
                             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
                             startActivity(intent);
@@ -143,25 +112,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.setWebViewClient(new WebViewClient() {
-            // MONETAG ADS SCRIPT YAHAN AUTO-INJECT HOGA JAB PAGE LOAD HOGA
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-
-                // Monetag Tag Injection
-                String monetagScript = 
-                    "var meta = document.createElement('meta');" +
-                    "meta.name = 'monetag';" +
-                    "meta.content = '6c2cce59c8d9495f201a172a9df79dc2';" +
-                    "document.getElementsByTagName('head')[0].appendChild(meta);" +
-                    
-                    "(function(s){s.dataset.zone='11984536',s.src='https://al5sm.com/tag.min.js'})" +
-                    "([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));" +
-                    
-                    "(function(s){s.dataset.zone='11989369',s.src='https://n6wxm.com/vignette.min.js'})" +
-                    "([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));";
-
-                view.evaluateJavascript(monetagScript, null);
+                // MONETAG VIGNETTE & BANNER SCRIPTS COMPLETELY REMOVED FROM HERE
             }
 
             @Override
@@ -174,7 +128,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
 
-                // 2. Play Store Ads, External Market aur Telegram Intent Links Handle
+                // 2. Play Store, Telegram, WhatsApp Intents
                 if (url.startsWith("market:") || url.startsWith("intent:") || url.startsWith("tg:") || 
                     url.startsWith("whatsapp:") || url.contains("play.google.com/store") || 
                     url.contains("t.me/") || url.contains("telegram.me/")) {
@@ -236,49 +190,57 @@ public class MainActivity extends AppCompatActivity {
                 String idToken = account.getIdToken();
                 String email = account.getEmail() != null ? account.getEmail() : "";
                 String name = account.getDisplayName() != null ? account.getDisplayName() : "Google User";
-                String accountId = account.getId() != null ? account.getId() : "G_" + System.currentTimeMillis();
+                String accountId = account.getId() != null ? account.getId() : "";
 
-                // 1. Agar ID Token mila to normal Firebase credential login
                 if (idToken != null && !idToken.isEmpty()) {
-                    webView.evaluateJavascript(
+                    // Safe string escaping for JavaScript execution
+                    String safeToken = idToken.replace("\"", "\\\"");
+                    String safeEmail = email.replace("\"", "\\\"");
+                    String safeName = name.replace("\"", "\\\"");
+                    String safeId = accountId.replace("\"", "\\\"");
+
+                    String jsCode = String.format(
                         "javascript:(function(){" +
-                        "  if(window.onNativeGoogleLoginSuccess){" +
-                        "    window.onNativeGoogleLoginSuccess('" + idToken + "', '" + email + "', '" + name + "');" +
-                        "  } else if(window.handleSuccessfulLogin){" +
-                        "    window.handleSuccessfulLogin({uid:'" + accountId + "', displayName:'" + name + "', email:'" + email + "'}, '" + name + "', '" + email + "');" +
+                        "  if(typeof window.onNativeGoogleLoginSuccess === 'function'){" +
+                        "    window.onNativeGoogleLoginSuccess('%s', '%s', '%s');" +
+                        "  } else if(typeof window.handleSuccessfulLogin === 'function'){" +
+                        "    window.handleSuccessfulLogin({uid:'%s', displayName:'%s', email:'%s', idToken:'%s'}, '%s', '%s');" +
                         "  }" +
-                        "})();", 
-                        null
+                        "})();",
+                        safeToken, safeEmail, safeName, safeId, safeName, safeEmail, safeToken, safeName, safeEmail
                     );
+                    webView.evaluateJavascript(jsCode, null);
                 } else {
-                    // 2. Agar token nahi mila to Direct Account Login (Zero Error Fallback)
-                    webView.evaluateJavascript(
-                        "javascript:(function(){" +
-                        "  if(window.handleSuccessfulLogin){" +
-                        "    window.handleSuccessfulLogin({uid:'" + accountId + "', displayName:'" + name + "', email:'" + email + "'}, '" + name + "', '" + email + "');" +
-                        "  } else {" +
-                        "    location.reload();" +
-                        "  }" +
-                        "})();", 
-                        null
-                    );
+                    Toast.makeText(this, "Google ID Token is null. Please check SHA-1 in Firebase Console.", Toast.LENGTH_LONG).show();
+                    resetWebLoadingState();
                 }
             }
         } catch (ApiException e) {
             int code = e.getStatusCode();
-            // Agar Error 10 ya koi issue aaye to basic sign-in fallback karega
-            if (code == 10 || code == 12500) {
-                GoogleSignInOptions simpleGso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                        .requestEmail()
-                        .build();
-                mGoogleSignInClient = GoogleSignIn.getClient(this, simpleGso);
-                
-                Intent signInIntent = mGoogleSignInClient.getSignInIntent();
-                googleSignInLauncher.launch(signInIntent);
+            String errorMsg;
+            if (code == 10) {
+                errorMsg = "Error 10 (DEVELOPER_ERROR): SHA-1 fingerprint Firebase Console me add nahi hai!";
+            } else if (code == 12500) {
+                errorMsg = "Error 12500: Sign-in failed. Please check SHA-1 & Google Play Services.";
+            } else if (code == 12501) {
+                errorMsg = "Sign-in cancelled.";
             } else {
-                Toast.makeText(this, "Sign-in cancelled or failed: " + code, Toast.LENGTH_SHORT).show();
+                errorMsg = "Sign-in failed with error code: " + code;
             }
+            Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show();
+            resetWebLoadingState();
         }
+    }
+
+    private void resetWebLoadingState() {
+        // Agar login fail ya cancel ho jaye to button ko stuck hone se bachana
+        webView.evaluateJavascript(
+            "javascript:(function(){" +
+            "  var btns = document.querySelectorAll('button');" +
+            "  btns.forEach(function(b){ if(b.innerText.includes('Connecting')) { b.innerText = 'Continue with Google'; } });" +
+            "})();",
+            null
+        );
     }
 
     private void showCustomOfflineScreen(WebView view) {
@@ -298,11 +260,8 @@ public class MainActivity extends AppCompatActivity {
         public void showAd() {
             runOnUiThread(() -> {
                 try {
-                    // Monetag Direct Ad Link open karega
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(MONETAG_DIRECT_LINK));
                     startActivity(intent);
-
-                    // Website ko callback bhejna (Ad dekha gaya)
                     webView.evaluateJavascript("javascript:if(window.onAndroidAdFinished){window.onAndroidAdFinished(true);}", null);
                 } catch (Exception e) {
                     Toast.makeText(MainActivity.this, "Failed to open Ad Link", Toast.LENGTH_SHORT).show();
