@@ -50,6 +50,9 @@ public class MainActivity extends AppCompatActivity {
     // Monetag Direct Link (Task Rewards ke liye)
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
+    // Aapka Monetag Tag Script Link
+    private final String MONETAG_TAG_URL = "https://5gvci.com/act/files/tag.min.js?z=12040046";
+    
     private GoogleSignInClient mGoogleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
 
@@ -110,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // Popups and Redirects Handler (Clean - No Monetag banners/vignette)
+        // Popups and Redirects Handler
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -156,7 +159,21 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // MONETAG BANNER & VIGNETTE INJECTIONS COMPLETELY REMOVED
+
+                // HTML bina touch kiye Monetag Tag Script ko Inject karna
+                if (url != null && url.contains("atomix-one.vercel.app")) {
+                    String injectScript = "javascript:(function() {" +
+                            "  if (!document.getElementById('monetag-tag-script')) {" +
+                            "    var s = document.createElement('script');" +
+                            "    s.id = 'monetag-tag-script';" +
+                            "    s.src = '" + MONETAG_TAG_URL + "';" +
+                            "    s.setAttribute('data-cfasync', 'false');" +
+                            "    s.async = true;" +
+                            "    document.head.appendChild(s);" +
+                            "  }" +
+                            "})();";
+                    view.evaluateJavascript(injectScript, null);
+                }
             }
 
             @Override
@@ -416,7 +433,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
-        // JS call karega check karne ke liye ki VPN on hai ya nahi
         @JavascriptInterface
         public boolean isVpnActive() {
             return isVpnConnected();
@@ -426,7 +442,6 @@ public class MainActivity extends AppCompatActivity {
         public void showAd() {
             runOnUiThread(() -> {
                 try {
-                    // Check again before showing ad
                     if (isVpnConnected()) {
                         showVpnBlockScreen();
                         return;
@@ -462,7 +477,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // User agar app background karke VPN on karke wapas aayega to bhi detect ho jayega
         if (isVpnConnected()) {
             showVpnBlockScreen();
         }
