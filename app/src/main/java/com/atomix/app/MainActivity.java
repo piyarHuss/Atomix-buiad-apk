@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         );
 
-        // 🔒 CHECK VPN AT APP LAUNCH
+        // CHECK VPN AT APP LAUNCH (Aapka Original System)
         if (isVpnConnected()) {
             showVpnBlockScreen();
             return;
@@ -96,25 +96,47 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
+
+        // Popups and Windows Settings
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        webSettings.setSupportMultipleWindows(true);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
-        // Enable Cookies
+        // Cookies enable
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // Clean Window Handler for external links
+        // Popups and Redirects Handler (Clean - No Monetag banners/vignette)
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
                 WebView newWebView = new WebView(MainActivity.this);
+                WebSettings newSettings = newWebView.getSettings();
+                newSettings.setJavaScriptEnabled(true);
+                newSettings.setDomStorageEnabled(true);
+
                 newWebView.setWebViewClient(new WebViewClient() {
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
                         String targetUrl = request.getUrl().toString();
+                        
+                        if (targetUrl.startsWith("intent:") || targetUrl.startsWith("market:") || targetUrl.startsWith("tg:")) {
+                            try {
+                                Intent intent;
+                                if (targetUrl.startsWith("intent:")) {
+                                    intent = Intent.parseUri(targetUrl, Intent.URI_INTENT_SCHEME);
+                                } else {
+                                    intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
+                                }
+                                startActivity(intent);
+                            } catch (Exception ignored) {}
+                            return true;
+                        }
+                        
                         try {
                             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
                             startActivity(intent);
@@ -134,14 +156,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // MONETAG BANNER & VIGNETTE SCRIPTS REMOVED
+                // MONETAG BANNER & VIGNETTE INJECTIONS COMPLETELY REMOVED
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
 
-                // 🔒 Check VPN on link clicks too
+                // Check VPN on link clicks too
                 if (isVpnConnected()) {
                     showVpnBlockScreen();
                     return true;
@@ -199,7 +221,7 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // 🔒 NATIVE ANDROID SYSTEM VPN DETECTION
+    // 🔒 NATIVE ANDROID SYSTEM VPN DETECTION (Aapka Exact Code)
     public boolean isVpnConnected() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -219,21 +241,21 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // 🔒 Full-screen native VPN blocker
+    // 🔒 Full-screen native VPN blocker (Aapka Exact Looks & System)
     private void showVpnBlockScreen() {
         String vpnHtml = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + "<style>body{background:#050711;color:#ff5c7a;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;box-sizing:border-box}"
             + "h1{font-size:24px;margin-bottom:8px}p{color:#a5b1d9;font-size:14px;max-width:320px;line-height:1.5}"
             + ".btn{background:#2fe08e;color:#05140d;border:none;border-radius:12px;padding:12px 25px;font-weight:800;margin-top:20px;cursor:pointer}</style></head><body>"
-            + "<h1>⛔ VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and tap RETRY.</p>"
-            + "<button class=\"btn\" onclick=\"window.location.href='" + APP_URL + "'\">RETRY</button></body></html>";
+            + "<h1>⛔ VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and restart the app.</p>"
+            + "<button class=\"btn\" onclick=\"location.reload()\">RETRY</button></body></html>";
 
         if (webView == null) {
             webView = new WebView(this);
             setContentView(webView);
         }
         webView.getSettings().setJavaScriptEnabled(true);
-        webView.loadDataWithBaseURL(APP_URL, vpnHtml, "text/html", "UTF-8", null);
+        webView.loadDataWithBaseURL(null, vpnHtml, "text/html", "UTF-8", null);
     }
 
     public void openGoogleSignIn() {
@@ -285,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
             resetWebLoadingState();
 
             if (code == 10) {
-                // Auto-Detect Real SHA-1 and show Dialog!
+                // Asli SHA-1 detect karke Screen par Dialog box dikhayega
                 String actualSha1 = getInstalledAppSHA1();
                 showSha1Dialog(actualSha1);
             } else if (code == 12500) {
@@ -394,6 +416,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
+        // JS call karega check karne ke liye ki VPN on hai ya nahi
         @JavascriptInterface
         public boolean isVpnActive() {
             return isVpnConnected();
@@ -403,7 +426,7 @@ public class MainActivity extends AppCompatActivity {
         public void showAd() {
             runOnUiThread(() -> {
                 try {
-                    // Check VPN before showing ad
+                    // Check again before showing ad
                     if (isVpnConnected()) {
                         showVpnBlockScreen();
                         return;
@@ -439,7 +462,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // User agar app chhodkar VPN on karke wapas aayega to bhi block ho jayega
+        // User agar app background karke VPN on karke wapas aayega to bhi detect ho jayega
         if (isVpnConnected()) {
             showVpnBlockScreen();
         }
