@@ -1,7 +1,12 @@
 package com.atomix.app;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.view.View;
@@ -27,14 +32,14 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 
+import org.json.JSONObject;
+
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private final String APP_URL = "https://atomix-one.vercel.app/";
-    
-    // Make sure this is the WEB Client ID (from Firebase > Authentication > Google > Web SDK config)
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
-    // Monetag Direct Link (Sirf task reward ke liye, Banner/Vignette removed)
+    // Monetag Direct Link (Sirf task reward button ke liye)
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
     private GoogleSignInClient mGoogleSignInClient;
@@ -80,14 +85,14 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
-        // Enable Cookies
+        // Enable Cookies for Auth & Session
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // External Link & Popup Window Handler (Cleaned - Monetag popups removed)
+        // Clean Window Handler (External browser links)
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -115,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // MONETAG VIGNETTE & BANNER SCRIPTS COMPLETELY REMOVED FROM HERE
+                // MONETAG BANNER & VIGNETTE SCRIPTS PERMANENTLY REMOVED
             }
 
             @Override
@@ -193,25 +198,28 @@ public class MainActivity extends AppCompatActivity {
                 String accountId = account.getId() != null ? account.getId() : "";
 
                 if (idToken != null && !idToken.isEmpty()) {
-                    // Safe string escaping for JavaScript execution
-                    String safeToken = idToken.replace("\"", "\\\"");
-                    String safeEmail = email.replace("\"", "\\\"");
-                    String safeName = name.replace("\"", "\\\"");
-                    String safeId = accountId.replace("\"", "\\\"");
+                    // Safe JSON Serialization (Zero Syntax Error)
+                    JSONObject userObj = new JSONObject();
+                    userObj.put("idToken", idToken);
+                    userObj.put("email", email);
+                    userObj.put("name", name);
+                    userObj.put("uid", accountId);
 
                     String jsCode = String.format(
                         "javascript:(function(){" +
-                        "  if(typeof window.onNativeGoogleLoginSuccess === 'function'){" +
-                        "    window.onNativeGoogleLoginSuccess('%s', '%s', '%s');" +
-                        "  } else if(typeof window.handleSuccessfulLogin === 'function'){" +
-                        "    window.handleSuccessfulLogin({uid:'%s', displayName:'%s', email:'%s', idToken:'%s'}, '%s', '%s');" +
+                        "  var data = %s;" +
+                        "  if (typeof window.onNativeGoogleLoginSuccess === 'function') {" +
+                        "    window.onNativeGoogleLoginSuccess(data.idToken, data.email, data.name);" +
+                        "  } else if (typeof window.handleSuccessfulLogin === 'function') {" +
+                        "    window.handleSuccessfulLogin({uid: data.uid, displayName: data.name, email: data.email, idToken: data.idToken}, data.name, data.email);" +
                         "  }" +
                         "})();",
-                        safeToken, safeEmail, safeName, safeId, safeName, safeEmail, safeToken, safeName, safeEmail
+                        userObj.toString()
                     );
+
                     webView.evaluateJavascript(jsCode, null);
                 } else {
-                    Toast.makeText(this, "Google ID Token is null. Please check SHA-1 in Firebase Console.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "ID Token null mila! SHA-1 check karein.", Toast.LENGTH_LONG).show();
                     resetWebLoadingState();
                 }
             }
@@ -219,28 +227,35 @@ public class MainActivity extends AppCompatActivity {
             int code = e.getStatusCode();
             String errorMsg;
             if (code == 10) {
-                errorMsg = "Error 10 (DEVELOPER_ERROR): SHA-1 fingerprint Firebase Console me add nahi hai!";
+                errorMsg = "Error 10: SHA-1 Firebase me match nahi ho raha!";
             } else if (code == 12500) {
-                errorMsg = "Error 12500: Sign-in failed. Please check SHA-1 & Google Play Services.";
+                errorMsg = "Error 12500: Phone restart karein aur Google Play Services check karein.";
             } else if (code == 12501) {
                 errorMsg = "Sign-in cancelled.";
             } else {
-                errorMsg = "Sign-in failed with error code: " + code;
+                errorMsg = "Google Sign-in Error: " + code;
             }
             Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show();
+            resetWebLoadingState();
+        } catch (Exception e) {
+            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
             resetWebLoadingState();
         }
     }
 
     private void resetWebLoadingState() {
-        // Agar login fail ya cancel ho jaye to button ko stuck hone se bachana
-        webView.evaluateJavascript(
-            "javascript:(function(){" +
-            "  var btns = document.querySelectorAll('button');" +
-            "  btns.forEach(function(b){ if(b.innerText.includes('Connecting')) { b.innerText = 'Continue with Google'; } });" +
-            "})();",
-            null
-        );
+        runOnUiThread(() -> {
+            webView.evaluateJavascript(
+                "javascript:(function(){" +
+                "  if (typeof window.resetGoogleLoginState === 'function') { window.resetGoogleLoginState(); }" +
+                "  var btn = document.getElementById('obGoogle');" +
+                "  var txt = document.getElementById('obGoogleTxt');" +
+                "  if (btn) btn.disabled = false;" +
+                "  if (txt) txt.textContent = 'Continue with Google';" +
+                "})();",
+                null
+            );
+        });
     }
 
     private void showCustomOfflineScreen(WebView view) {
@@ -284,6 +299,19 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, "Cannot open link", Toast.LENGTH_SHORT).show();
                 }
             });
+        }
+
+        @JavascriptInterface
+        public boolean isVpnActive() {
+            try {
+                ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Network activeNetwork = cm.getActiveNetwork();
+                    NetworkCapabilities caps = cm.getNetworkCapabilities(activeNetwork);
+                    return caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
+                }
+            } catch (Exception ignored) {}
+            return false;
         }
     }
 
