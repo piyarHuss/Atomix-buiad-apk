@@ -8,7 +8,6 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -20,33 +19,17 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.tasks.Task;
 
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private final String APP_URL = "https://atomix-one.vercel.app/";
-    private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
-    
-    // Monetag Direct Link
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
-    
-    private GoogleSignInClient mGoogleSignInClient;
-    private ActivityResultLauncher<Intent> googleSignInLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Hardware Acceleration
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
@@ -61,18 +44,7 @@ public class MainActivity extends AppCompatActivity {
         webView = new WebView(this);
         setContentView(webView);
 
-        // 1. Google Native Sign-In Setup (Error 10 Proof Configuration)
-        initGoogleSignInClient();
-
-        googleSignInLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
-                    handleSignInResult(task);
-                }
-        );
-
-        // 2. WebView Settings
+        // WEBVIEW SETTINGS FOR SEAMLESS GOOGLE POPUP & MONETAG
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
@@ -81,14 +53,16 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
+
+        // Crucial for Google Sign In inside WebView
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        webSettings.setSupportMultipleWindows(true);
         webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
-        // Cookies enable
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         webView.setWebChromeClient(new WebChromeClient());
 
         webView.setWebViewClient(new WebViewClient() {
@@ -96,19 +70,13 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
 
-                // Check VPN on link clicks
+                // Check VPN on clicks
                 if (isVpnConnected()) {
                     showVpnBlockScreen();
                     return true;
                 }
 
-                // 1. Google Login Handle
-                if (url.contains("accounts.google.com") || url.contains("firebaseapp.com/__/auth/handler")) {
-                    openGoogleSignIn();
-                    return true;
-                }
-
-                // 2. External Intents (Play Store, Telegram, WhatsApp)
+                // External Intents
                 if (url.startsWith("market:") || url.startsWith("intent:") || url.startsWith("tg:") || 
                     url.startsWith("whatsapp:") || url.contains("play.google.com/store") || 
                     url.contains("t.me/") || url.contains("telegram.me/")) {
@@ -154,23 +122,6 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    private void initGoogleSignInClient() {
-        try {
-            GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .requestIdToken(WEB_CLIENT_ID)
-                    .build();
-            mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
-        } catch (Exception e) {
-            // Fallback without requestIdToken to prevent Error 10 crash
-            GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .build();
-            mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
-        }
-    }
-
-    // 🔒 NATIVE ANDROID SYSTEM VPN DETECTION
     public boolean isVpnConnected() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -190,7 +141,6 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // Full-screen native VPN blocker
     private void showVpnBlockScreen() {
         String vpnHtml = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + "<style>body{background:#050711;color:#ff5c7a;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;box-sizing:border-box}"
@@ -205,71 +155,6 @@ public class MainActivity extends AppCompatActivity {
         }
         webView.getSettings().setJavaScriptEnabled(true);
         webView.loadDataWithBaseURL(null, vpnHtml, "text/html", "UTF-8", null);
-    }
-
-    public void openGoogleSignIn() {
-        runOnUiThread(() -> {
-            mGoogleSignInClient.signOut().addOnCompleteListener(task -> {
-                Intent signInIntent = mGoogleSignInClient.getSignInIntent();
-                googleSignInLauncher.launch(signInIntent);
-            });
-        });
-    }
-
-    // 🎯 GOOGLE LOGIN RESULT (HANDLES SUCCESS + AUTO-BYPASSES ERROR 10)
-    private void handleSignInResult(Task<GoogleSignInAccount> completedTask) {
-        try {
-            GoogleSignInAccount account = completedTask.getResult(ApiException.class);
-            if (account != null) {
-                String idToken = account.getIdToken();
-                String email = account.getEmail() != null ? account.getEmail() : "";
-                String name = account.getDisplayName() != null ? account.getDisplayName() : "Google User";
-                String accountId = account.getId() != null ? account.getId() : "G_" + System.currentTimeMillis();
-
-                if (idToken != null && !idToken.isEmpty()) {
-                    // Normal Native Token Login
-                    webView.evaluateJavascript(
-                        "javascript:(function(){" +
-                        "  if(window.onNativeGoogleLoginSuccess){" +
-                        "    window.onNativeGoogleLoginSuccess('" + idToken + "', '" + email + "', '" + name + "');" +
-                        "  } else if(window.handleSuccessfulLogin){" +
-                        "    window.handleSuccessfulLogin({uid:'" + accountId + "', displayName:'" + name + "', email:'" + email + "'}, '" + name + "', '" + email + "');" +
-                        "  }" +
-                        "})();", 
-                        null
-                    );
-                } else {
-                    // Direct Auth Bypass (If Token is blocked by Google)
-                    webView.evaluateJavascript(
-                        "javascript:(function(){" +
-                        "  if(window.handleSuccessfulLogin){" +
-                        "    window.handleSuccessfulLogin({uid:'" + accountId + "', displayName:'" + name + "', email:'" + email + "'}, '" + name + "', '" + email + "');" +
-                        "  } else {" +
-                        "    location.reload();" +
-                        "  }" +
-                        "})();", 
-                        null
-                    );
-                }
-            }
-        } catch (ApiException e) {
-            int statusCode = e.getStatusCode();
-            
-            // AGAR ERROR 10 AAYA TO DUSRA DIRECT METHOD CHALAYEGA (Zero-Crash Fallback)
-            if (statusCode == 10 || statusCode == 12500) {
-                GoogleSignInOptions fallbackGso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                        .requestEmail()
-                        .build();
-                mGoogleSignInClient = GoogleSignIn.getClient(this, fallbackGso);
-                
-                // Prompt user cleanly
-                Toast.makeText(this, "Connecting directly...", Toast.LENGTH_SHORT).show();
-                Intent signInIntent = mGoogleSignInClient.getSignInIntent();
-                googleSignInLauncher.launch(signInIntent);
-            } else {
-                Toast.makeText(this, "Sign-in cancelled or failed: " + statusCode, Toast.LENGTH_SHORT).show();
-            }
-        }
     }
 
     private void showCustomOfflineScreen(WebView view) {
@@ -310,7 +195,21 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void openGoogleLogin() {
-            openGoogleSignIn();
+            // Native dialog ke badle webview ko standard Firebase Google Auth trigger karne dega
+            runOnUiThread(() -> {
+                webView.evaluateJavascript("javascript:(function(){" +
+                    "  if(window.auth && window.GoogleAuthProvider){" +
+                    "    var provider = new window.GoogleAuthProvider();" +
+                    "    window.signInWithPopup(window.auth, provider).then(function(res){" +
+                    "      if(window.handleSuccessfulLogin) window.handleSuccessfulLogin(res.user);" +
+                    "    }).catch(function(err){" +
+                    "      if(window.toast) window.toast(err.message);" +
+                    "    });" +
+                    "  } else {" +
+                    "    if(window.openAuthSheet) window.openAuthSheet('email');" +
+                    "  }" +
+                    "})();", null);
+            });
         }
 
         @JavascriptInterface
