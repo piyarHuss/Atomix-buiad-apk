@@ -50,9 +50,6 @@ public class MainActivity extends AppCompatActivity {
     // Monetag Direct Link (Task Rewards ke liye)
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
-    // Aapka Monetag Tag Script Link
-    private final String MONETAG_TAG_URL = "https://5gvci.com/act/files/tag.min.js?z=12040046";
-    
     private GoogleSignInClient mGoogleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
 
@@ -113,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // Popups and Redirects Handler
+        // Popups and Redirects Handler (Clean - No Monetag banners/vignette)
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -159,21 +156,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-
-                // HTML bina touch kiye Monetag Tag Script ko Inject karna
-                if (url != null && url.contains("atomix-one.vercel.app")) {
-                    String injectScript = "javascript:(function() {" +
-                            "  if (!document.getElementById('monetag-tag-script')) {" +
-                            "    var s = document.createElement('script');" +
-                            "    s.id = 'monetag-tag-script';" +
-                            "    s.src = '" + MONETAG_TAG_URL + "';" +
-                            "    s.setAttribute('data-cfasync', 'false');" +
-                            "    s.async = true;" +
-                            "    document.head.appendChild(s);" +
-                            "  }" +
-                            "})();";
-                    view.evaluateJavascript(injectScript, null);
-                }
+                // MONETAG BANNER & VIGNETTE INJECTIONS COMPLETELY REMOVED
             }
 
             @Override
@@ -238,7 +221,7 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // 🔒 NATIVE ANDROID SYSTEM VPN DETECTION (Aapka Exact Code)
+    // ðŸ”’ NATIVE ANDROID SYSTEM VPN DETECTION (Aapka Exact Code)
     public boolean isVpnConnected() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -258,13 +241,13 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // 🔒 Full-screen native VPN blocker (Aapka Exact Looks & System)
+    // ðŸ”’ Full-screen native VPN blocker (Aapka Exact Looks & System)
     private void showVpnBlockScreen() {
         String vpnHtml = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + "<style>body{background:#050711;color:#ff5c7a;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;box-sizing:border-box}"
             + "h1{font-size:24px;margin-bottom:8px}p{color:#a5b1d9;font-size:14px;max-width:320px;line-height:1.5}"
             + ".btn{background:#2fe08e;color:#05140d;border:none;border-radius:12px;padding:12px 25px;font-weight:800;margin-top:20px;cursor:pointer}</style></head><body>"
-            + "<h1>⛔ VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and restart the app.</p>"
+            + "<h1>â›” VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and restart the app.</p>"
             + "<button class=\"btn\" onclick=\"location.reload()\">RETRY</button></body></html>";
 
         if (webView == null) {
@@ -433,6 +416,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
+        // JS call karega check karne ke liye ki VPN on hai ya nahi
         @JavascriptInterface
         public boolean isVpnActive() {
             return isVpnConnected();
@@ -442,6 +426,7 @@ public class MainActivity extends AppCompatActivity {
         public void showAd() {
             runOnUiThread(() -> {
                 try {
+                    // Check again before showing ad
                     if (isVpnConnected()) {
                         showVpnBlockScreen();
                         return;
@@ -477,6 +462,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // User agar app background karke VPN on karke wapas aayega to bhi detect ho jayega
         if (isVpnConnected()) {
             showVpnBlockScreen();
         }
