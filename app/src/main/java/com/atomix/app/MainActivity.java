@@ -1,20 +1,13 @@
 package com.atomix.app;
 
-import android.app.AlertDialog;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.content.pm.Signature;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Message;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
@@ -38,16 +31,12 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 
-import org.json.JSONObject;
-
-import java.security.MessageDigest;
-
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private final String APP_URL = "https://atomix-one.vercel.app/";
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
-    // Monetag Direct Link (Task Rewards ke liye)
+    // Monetag Direct Link (Sirf button click par chalega)
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
     private GoogleSignInClient mGoogleSignInClient;
@@ -63,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         );
 
-        // CHECK VPN AT APP LAUNCH (Aapka Original System)
+        // CHECK VPN AT APP LAUNCH
         if (isVpnConnected()) {
             showVpnBlockScreen();
             return;
@@ -96,11 +85,6 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
-
-        // Popups and Windows Settings
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        webSettings.setSupportMultipleWindows(true);
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
         // Cookies enable
@@ -109,56 +93,9 @@ public class MainActivity extends AppCompatActivity {
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-
-        // Popups and Redirects Handler (Clean - No Monetag banners/vignette)
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
-                WebView newWebView = new WebView(MainActivity.this);
-                WebSettings newSettings = newWebView.getSettings();
-                newSettings.setJavaScriptEnabled(true);
-                newSettings.setDomStorageEnabled(true);
-
-                newWebView.setWebViewClient(new WebViewClient() {
-                    @Override
-                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
-                        String targetUrl = request.getUrl().toString();
-                        
-                        if (targetUrl.startsWith("intent:") || targetUrl.startsWith("market:") || targetUrl.startsWith("tg:")) {
-                            try {
-                                Intent intent;
-                                if (targetUrl.startsWith("intent:")) {
-                                    intent = Intent.parseUri(targetUrl, Intent.URI_INTENT_SCHEME);
-                                } else {
-                                    intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
-                                }
-                                startActivity(intent);
-                            } catch (Exception ignored) {}
-                            return true;
-                        }
-                        
-                        try {
-                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
-                            startActivity(intent);
-                        } catch (Exception ignored) {}
-                        return true;
-                    }
-                });
-
-                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
-                transport.setWebView(newWebView);
-                resultMsg.sendToTarget();
-                return true;
-            }
-        });
+        webView.setWebChromeClient(new WebChromeClient());
 
         webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                // MONETAG BANNER & VIGNETTE INJECTIONS COMPLETELY REMOVED
-            }
-
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
@@ -221,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // 🔒 NATIVE ANDROID SYSTEM VPN DETECTION (Aapka Exact Code)
+    // 🔒 NATIVE ANDROID SYSTEM VPN DETECTION
     public boolean isVpnConnected() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -241,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // 🔒 Full-screen native VPN blocker (Aapka Exact Looks & System)
+    // Full-screen native VPN blocker
     private void showVpnBlockScreen() {
         String vpnHtml = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + "<style>body{background:#050711;color:#ff5c7a;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;box-sizing:border-box}"
@@ -272,135 +209,18 @@ public class MainActivity extends AppCompatActivity {
             GoogleSignInAccount account = completedTask.getResult(ApiException.class);
             if (account != null) {
                 String idToken = account.getIdToken();
-                String email = account.getEmail() != null ? account.getEmail() : "";
-                String name = account.getDisplayName() != null ? account.getDisplayName() : "Google User";
-                String accountId = account.getId() != null ? account.getId() : "";
-
-                if (idToken != null && !idToken.isEmpty()) {
-                    // Safe JSON Serialization
-                    JSONObject userObj = new JSONObject();
-                    userObj.put("idToken", idToken);
-                    userObj.put("email", email);
-                    userObj.put("name", name);
-                    userObj.put("uid", accountId);
-
-                    String jsCode = String.format(
-                        "javascript:(function(){" +
-                        "  var data = %s;" +
-                        "  if (typeof window.onNativeGoogleLoginSuccess === 'function') {" +
-                        "    window.onNativeGoogleLoginSuccess(data.idToken, data.email, data.name);" +
-                        "  } else if (typeof window.handleSuccessfulLogin === 'function') {" +
-                        "    window.handleSuccessfulLogin({uid: data.uid, displayName: data.name, email: data.email, idToken: data.idToken}, data.name, data.email);" +
-                        "  }" +
-                        "})();",
-                        userObj.toString()
-                    );
-
-                    webView.evaluateJavascript(jsCode, null);
-                } else {
-                    Toast.makeText(this, "ID Token null mila!", Toast.LENGTH_LONG).show();
-                    resetWebLoadingState();
-                }
+                String email = account.getEmail();
+                String name = account.getDisplayName();
+                
+                webView.evaluateJavascript(
+                        "javascript:if(window.onNativeGoogleLoginSuccess){window.onNativeGoogleLoginSuccess('" 
+                                + idToken + "', '" + email + "', '" + name + "');}else{alert('Logged in as " + email + "');}", 
+                        null
+                );
             }
         } catch (ApiException e) {
-            int code = e.getStatusCode();
-            resetWebLoadingState();
-
-            if (code == 10) {
-                // Asli SHA-1 detect karke Screen par Dialog box dikhayega
-                String actualSha1 = getInstalledAppSHA1();
-                showSha1Dialog(actualSha1);
-            } else if (code == 12500) {
-                Toast.makeText(this, "Error 12500: Phone restart karein.", Toast.LENGTH_LONG).show();
-            } else if (code == 12501) {
-                Toast.makeText(this, "Sign-in cancelled.", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Google Error: " + code, Toast.LENGTH_LONG).show();
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-            resetWebLoadingState();
+            Toast.makeText(this, "Sign-in cancelled or failed: " + e.getStatusCode(), Toast.LENGTH_SHORT).show();
         }
-    }
-
-    private void showSha1Dialog(String actualSha1) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Google Error 10 Diagnostic");
-        builder.setCancelable(false);
-
-        String message = "Aapke is phone par chal rahe APK ka Asli SHA-1 ye hai:\n\n"
-                + actualSha1 + "\n\n"
-                + "Ise COPY karein aur Firebase Console mein jakar 'Add fingerprint' mein daal dein!";
-
-        builder.setMessage(message);
-        builder.setPositiveButton("COPY SHA-1", (dialog, which) -> {
-            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            ClipData clip = ClipData.newPlainText("SHA1", actualSha1);
-            if (clipboard != null) {
-                clipboard.setPrimaryClip(clip);
-                Toast.makeText(this, "SHA-1 Copied! Firebase me add karein.", Toast.LENGTH_LONG).show();
-            }
-        });
-        builder.setNegativeButton("OK", null);
-        builder.show();
-    }
-
-    private String getInstalledAppSHA1() {
-        try {
-            PackageInfo info;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                info = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
-                if (info.signingInfo != null) {
-                    Signature[] signatures = info.signingInfo.hasMultipleSigners() 
-                            ? info.signingInfo.getApkContentsSigners() 
-                            : info.signingInfo.getSigningCertificateHistory();
-                    if (signatures != null && signatures.length > 0) {
-                        return hashSignature(signatures[0]);
-                    }
-                }
-            } else {
-                info = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_SIGNATURES);
-                if (info.signatures != null && info.signatures.length > 0) {
-                    return hashSignature(info.signatures[0]);
-                }
-            }
-        } catch (Exception e) {
-            return "Error: " + e.getMessage();
-        }
-        return "UNKNOWN";
-    }
-
-    private String hashSignature(Signature sig) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-1");
-            md.update(sig.toByteArray());
-            byte[] digest = md.digest();
-            StringBuilder hexString = new StringBuilder();
-            for (int i = 0; i < digest.length; i++) {
-                String hex = Integer.toHexString(0xFF & digest[i]);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex.toUpperCase());
-                if (i < digest.length - 1) hexString.append(":");
-            }
-            return hexString.toString();
-        } catch (Exception e) {
-            return "Error hashing";
-        }
-    }
-
-    private void resetWebLoadingState() {
-        runOnUiThread(() -> {
-            webView.evaluateJavascript(
-                "javascript:(function(){" +
-                "  if (typeof window.resetGoogleLoginState === 'function') { window.resetGoogleLoginState(); }" +
-                "  var btn = document.getElementById('obGoogle');" +
-                "  var txt = document.getElementById('obGoogleTxt');" +
-                "  if (btn) btn.disabled = false;" +
-                "  if (txt) txt.textContent = 'Continue with Google';" +
-                "})();",
-                null
-            );
-        });
     }
 
     private void showCustomOfflineScreen(WebView view) {
@@ -416,7 +236,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
-        // JS call karega check karne ke liye ki VPN on hai ya nahi
         @JavascriptInterface
         public boolean isVpnActive() {
             return isVpnConnected();
@@ -426,7 +245,6 @@ public class MainActivity extends AppCompatActivity {
         public void showAd() {
             runOnUiThread(() -> {
                 try {
-                    // Check again before showing ad
                     if (isVpnConnected()) {
                         showVpnBlockScreen();
                         return;
@@ -462,7 +280,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // User agar app background karke VPN on karke wapas aayega to bhi detect ho jayega
         if (isVpnConnected()) {
             showVpnBlockScreen();
         }
