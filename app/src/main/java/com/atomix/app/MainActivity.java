@@ -1,10 +1,13 @@
 package com.atomix.app;
 
 import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
@@ -14,6 +17,7 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Message;
 import android.view.View;
 import android.view.WindowManager;
@@ -30,6 +34,8 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -40,6 +46,7 @@ import com.google.android.gms.tasks.Task;
 
 import org.json.JSONObject;
 
+import java.io.File;
 import java.security.MessageDigest;
 
 public class MainActivity extends AppCompatActivity {
@@ -63,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         );
 
-        // CHECK VPN AT APP LAUNCH (Aapka Original System)
+        // CHECK VPN AT APP LAUNCH
         if (isVpnConnected()) {
             showVpnBlockScreen();
             return;
@@ -110,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // Popups and Redirects Handler (Clean - No Monetag banners/vignette)
+        // Popups and Redirects Handler
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -156,7 +163,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // MONETAG BANNER & VIGNETTE INJECTIONS COMPLETELY REMOVED
             }
 
             @Override
@@ -221,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // ðŸ”’ NATIVE ANDROID SYSTEM VPN DETECTION (Aapka Exact Code)
+    // NATIVE ANDROID SYSTEM VPN DETECTION
     public boolean isVpnConnected() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -241,13 +247,13 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // ðŸ”’ Full-screen native VPN blocker (Aapka Exact Looks & System)
+    // Full-screen native VPN blocker
     private void showVpnBlockScreen() {
         String vpnHtml = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + "<style>body{background:#050711;color:#ff5c7a;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;box-sizing:border-box}"
             + "h1{font-size:24px;margin-bottom:8px}p{color:#a5b1d9;font-size:14px;max-width:320px;line-height:1.5}"
             + ".btn{background:#2fe08e;color:#05140d;border:none;border-radius:12px;padding:12px 25px;font-weight:800;margin-top:20px;cursor:pointer}</style></head><body>"
-            + "<h1>â›” VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and restart the app.</p>"
+            + "<h1>⛔ VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and restart the app.</p>"
             + "<button class=\"btn\" onclick=\"location.reload()\">RETRY</button></body></html>";
 
         if (webView == null) {
@@ -277,7 +283,6 @@ public class MainActivity extends AppCompatActivity {
                 String accountId = account.getId() != null ? account.getId() : "";
 
                 if (idToken != null && !idToken.isEmpty()) {
-                    // Safe JSON Serialization
                     JSONObject userObj = new JSONObject();
                     userObj.put("idToken", idToken);
                     userObj.put("email", email);
@@ -307,7 +312,6 @@ public class MainActivity extends AppCompatActivity {
             resetWebLoadingState();
 
             if (code == 10) {
-                // Asli SHA-1 detect karke Screen par Dialog box dikhayega
                 String actualSha1 = getInstalledAppSHA1();
                 showSha1Dialog(actualSha1);
             } else if (code == 12500) {
@@ -416,7 +420,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
-        // JS call karega check karne ke liye ki VPN on hai ya nahi
         @JavascriptInterface
         public boolean isVpnActive() {
             return isVpnConnected();
@@ -426,7 +429,6 @@ public class MainActivity extends AppCompatActivity {
         public void showAd() {
             runOnUiThread(() -> {
                 try {
-                    // Check again before showing ad
                     if (isVpnConnected()) {
                         showVpnBlockScreen();
                         return;
@@ -457,12 +459,95 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+
+        // ⭐ IN-APP APK DOWNLOAD & AUTO-INSTALLATION METHOD ⭐
+        @JavascriptInterface
+        public void downloadAndInstallApk(String apkUrl) {
+            runOnUiThread(() -> {
+                try {
+                    Toast.makeText(MainActivity.this, "Downloading latest update...", Toast.LENGTH_SHORT).show();
+
+                    // Android System DownloadManager setup
+                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
+                    request.setTitle("Atomix Miner Update");
+                    request.setDescription("Downloading latest version APK...");
+                    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                    
+                    String fileName = "Atomix_Update_" + System.currentTimeMillis() + ".apk";
+                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
+                    request.setMimeType("application/vnd.android.package-archive");
+
+                    DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (dm != null) {
+                        dm.enqueue(request);
+
+                        // Broadcast Receiver: Download complete hone par automatically install open karega
+                        BroadcastReceiver onComplete = new BroadcastReceiver() {
+                            @Override
+                            public void onReceive(Context context, Intent intent) {
+                                try {
+                                    context.unregisterReceiver(this);
+                                } catch (Exception ignored) {}
+
+                                try {
+                                    File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName);
+                                    if (file.exists()) {
+                                        Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                                        installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                                        Uri apkUri;
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                            apkUri = FileProvider.getUriForFile(
+                                                MainActivity.this,
+                                                getPackageName() + ".provider",
+                                                file
+                                            );
+                                            installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                        } else {
+                                            apkUri = Uri.fromFile(file);
+                                        }
+
+                                        installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                                        startActivity(installIntent);
+                                    }
+                                } catch (Exception e) {
+                                    // FileProvider issue fallback: direct browser se download open kar do
+                                    try {
+                                        Intent fallbackIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
+                                        fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                        startActivity(fallbackIntent);
+                                    } catch (Exception ignored) {}
+                                }
+                            }
+                        };
+
+                        ContextCompat.registerReceiver(
+                            MainActivity.this,
+                            onComplete,
+                            new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                            ContextCompat.RECEIVER_EXPORTED
+                        );
+                    } else {
+                        // Fallback: Default Browser
+                        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
+                        browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(browserIntent);
+                    }
+                } catch (Exception e) {
+                    // Safe browser download fallback
+                    try {
+                        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
+                        browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(browserIntent);
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // User agar app background karke VPN on karke wapas aayega to bhi detect ho jayega
         if (isVpnConnected()) {
             showVpnBlockScreen();
         }
