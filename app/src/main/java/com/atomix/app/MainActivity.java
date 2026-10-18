@@ -1,5 +1,6 @@
 package com.atomix.app;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
@@ -11,6 +12,8 @@ import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -19,7 +22,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Message;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -29,6 +34,8 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -46,7 +53,11 @@ import com.google.android.gms.tasks.Task;
 
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.security.MessageDigest;
 
 public class MainActivity extends AppCompatActivity {
@@ -54,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
     private final String APP_URL = "https://atomix-one.vercel.app/";
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
-    // Monetag Direct Link (Task Rewards ke liye)
+    // Monetag Direct Link (Backup task rewards ke liye)
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
     private GoogleSignInClient mGoogleSignInClient;
@@ -78,6 +89,9 @@ public class MainActivity extends AppCompatActivity {
 
         webView = new WebView(this);
         setContentView(webView);
+
+        // ⭐ AD-MAVEN IN-APP OVERLAY AD INITIALIZE (App Open Hote Hi) ⭐
+        new InAppAdsOverlay(this).show();
 
         // 1. Google Native Sign-In Setup
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -169,19 +183,16 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
 
-                // Check VPN on link clicks too
                 if (isVpnConnected()) {
                     showVpnBlockScreen();
                     return true;
                 }
 
-                // 1. Google Login Handle
                 if (url.contains("accounts.google.com") || url.contains("firebaseapp.com/__/auth/handler")) {
                     openGoogleSignIn();
                     return true;
                 }
 
-                // 2. Play Store, Telegram, WhatsApp, External Intents
                 if (url.startsWith("market:") || url.startsWith("intent:") || url.startsWith("tg:") || 
                     url.startsWith("whatsapp:") || url.contains("play.google.com/store") || 
                     url.contains("t.me/") || url.contains("telegram.me/")) {
@@ -227,7 +238,6 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // NATIVE ANDROID SYSTEM VPN DETECTION
     public boolean isVpnConnected() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -247,7 +257,6 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // Full-screen native VPN blocker
     private void showVpnBlockScreen() {
         String vpnHtml = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + "<style>body{background:#050711;color:#ff5c7a;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;box-sizing:border-box}"
@@ -425,6 +434,7 @@ public class MainActivity extends AppCompatActivity {
             return isVpnConnected();
         }
 
+        // ⭐ WATCH AD BUTTON DABANE PAR (Ad-Maven overlay trigger hoga) ⭐
         @JavascriptInterface
         public void showAd() {
             runOnUiThread(() -> {
@@ -433,12 +443,12 @@ public class MainActivity extends AppCompatActivity {
                         showVpnBlockScreen();
                         return;
                     }
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(MONETAG_DIRECT_LINK));
-                    startActivity(intent);
+                    
+                    // Ad-Maven Overlay Call
+                    new InAppAdsOverlay(MainActivity.this).show();
 
-                    webView.evaluateJavascript("javascript:if(window.onAndroidAdFinished){window.onAndroidAdFinished(true);}", null);
                 } catch (Exception e) {
-                    Toast.makeText(MainActivity.this, "Failed to open Ad Link", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Failed to load Ad", Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -460,14 +470,12 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // ⭐ IN-APP APK DOWNLOAD & AUTO-INSTALLATION METHOD ⭐
         @JavascriptInterface
         public void downloadAndInstallApk(String apkUrl) {
             runOnUiThread(() -> {
                 try {
                     Toast.makeText(MainActivity.this, "Downloading latest update...", Toast.LENGTH_SHORT).show();
 
-                    // Android System DownloadManager setup
                     DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
                     request.setTitle("Atomix Miner Update");
                     request.setDescription("Downloading latest version APK...");
@@ -481,7 +489,6 @@ public class MainActivity extends AppCompatActivity {
                     if (dm != null) {
                         dm.enqueue(request);
 
-                        // Broadcast Receiver: Download complete hone par automatically install open karega
                         BroadcastReceiver onComplete = new BroadcastReceiver() {
                             @Override
                             public void onReceive(Context context, Intent intent) {
@@ -511,7 +518,6 @@ public class MainActivity extends AppCompatActivity {
                                         startActivity(installIntent);
                                     }
                                 } catch (Exception e) {
-                                    // FileProvider issue fallback: direct browser se download open kar do
                                     try {
                                         Intent fallbackIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
                                         fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -528,13 +534,11 @@ public class MainActivity extends AppCompatActivity {
                             ContextCompat.RECEIVER_EXPORTED
                         );
                     } else {
-                        // Fallback: Default Browser
                         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
                         browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(browserIntent);
                     }
                 } catch (Exception e) {
-                    // Safe browser download fallback
                     try {
                         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
                         browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -542,6 +546,129 @@ public class MainActivity extends AppCompatActivity {
                     } catch (Exception ignored) {}
                 }
             });
+        }
+    }
+
+    // ==============================================================
+    // ⭐ AD-MAVEN IN-APP ADS OVERLAY CLASS (Built-in) ⭐
+    // ==============================================================
+    public static class InAppAdsOverlay {
+        private static final String RT_DOMAIN = "boostapp.me";
+        private static final String TID = "1727994";
+        private static final String BUTTON_TEXT = "Continue";
+        private static final boolean IS_DARK_MODE = true; // Dark mode enabled for Atomix
+
+        private FrameLayout overlayContainer;
+        private final Activity activity;
+        private String ptrUrl;
+
+        public InAppAdsOverlay(Activity activity) {
+            this.activity = activity;
+        }
+
+        public void show() {
+            new Thread(() -> {
+                try {
+                    URL url = new URL("https://" + RT_DOMAIN + "/inapp?tid=" + TID);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(5000);
+                    conn.setReadTimeout(5000);
+
+                    int responseCode = conn.getResponseCode();
+                    if (responseCode == 204) {
+                        return; // No ad available
+                    }
+
+                    if (responseCode == 200) {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line);
+                        }
+                        reader.close();
+
+                        JSONObject json = new JSONObject(sb.toString());
+                        ptrUrl = json.getString("ptr");
+
+                        activity.runOnUiThread(this::showOverlay);
+                    }
+                } catch (Exception ignored) {}
+            }).start();
+        }
+
+        private void showOverlay() {
+            try {
+                overlayContainer = new FrameLayout(activity);
+                overlayContainer.setLayoutParams(new ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                ));
+                overlayContainer.setBackgroundColor(Color.argb(170, 0, 0, 0));
+                overlayContainer.setClickable(true);
+
+                int[] gradientColors = IS_DARK_MODE
+                        ? new int[]{ Color.parseColor("#7C5CF3"), Color.parseColor("#4A3BD9") }   // Violet / Indigo
+                        : new int[]{ Color.parseColor("#3B82F6"), Color.parseColor("#17B5D6") };  // Blue / Cyan
+
+                GradientDrawable buttonBackground = new GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR, gradientColors);
+                buttonBackground.setCornerRadius(dp(14));
+
+                Button continueButton = new Button(activity);
+                continueButton.setText(BUTTON_TEXT);
+                continueButton.setTextColor(Color.WHITE);
+                continueButton.setTextSize(18);
+                continueButton.setAllCaps(false);
+                continueButton.setTypeface(continueButton.getTypeface(), android.graphics.Typeface.BOLD);
+                continueButton.setBackground(buttonBackground);
+                continueButton.setPadding(dp(48), dp(16), dp(48), dp(16));
+                continueButton.setElevation(dp(10));
+                continueButton.setStateListAnimator(null);
+
+                FrameLayout.LayoutParams buttonParams = new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                buttonParams.gravity = Gravity.CENTER;
+                continueButton.setLayoutParams(buttonParams);
+
+                continueButton.setOnClickListener(v -> {
+                    if (ptrUrl != null) {
+                        String fullUrl = ptrUrl.startsWith("//") ? "https:" + ptrUrl : ptrUrl;
+                        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl));
+                        activity.startActivity(browserIntent);
+                    }
+
+                    // Web App me ad complete ka signal bhejna taaki mining count ho
+                    if (activity instanceof MainActivity) {
+                        MainActivity ma = (MainActivity) activity;
+                        if (ma.webView != null) {
+                            ma.webView.evaluateJavascript("javascript:if(window.onAndroidAdFinished){window.onAndroidAdFinished(true);}", null);
+                        }
+                    }
+
+                    dismiss();
+                });
+
+                overlayContainer.addView(continueButton);
+
+                ViewGroup rootView = (ViewGroup) activity.getWindow().getDecorView().getRootView();
+                rootView.addView(overlayContainer);
+            } catch (Exception ignored) {}
+        }
+
+        private int dp(int value) {
+            float density = activity.getResources().getDisplayMetrics().density;
+            return (int) (value * density);
+        }
+
+        private void dismiss() {
+            if (overlayContainer != null && overlayContainer.getParent() != null) {
+                ((ViewGroup) overlayContainer.getParent()).removeView(overlayContainer);
+                overlayContainer = null;
+            }
         }
     }
 
