@@ -104,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
 
-        // Popups and Windows Settings
+        // Popups and Windows Settings (Adsterra & Ads ke liye zaroori)
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setSupportMultipleWindows(true);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
@@ -117,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // Popups and Redirects Handler
+        // ⭐ POPUPS & ADSTERRA POPUNDER HANDLER ⭐
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -127,12 +127,14 @@ public class MainActivity extends AppCompatActivity {
                 newSettings.setDomStorageEnabled(true);
 
                 newWebView.setWebViewClient(new WebViewClient() {
-                    @Override
-                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
-                        String targetUrl = request.getUrl().toString();
-                        
-                        if (targetUrl.startsWith("intent:") || targetUrl.startsWith("market:") || targetUrl.startsWith("tg:")) {
-                            try {
+                    private boolean handleUrl(WebView v, String targetUrl) {
+                        // Empty ya blank URL ko filter karein
+                        if (targetUrl == null || targetUrl.isEmpty() || targetUrl.startsWith("about:blank")) {
+                            return false;
+                        }
+
+                        try {
+                            if (targetUrl.startsWith("intent:") || targetUrl.startsWith("market:") || targetUrl.startsWith("tg:")) {
                                 Intent intent;
                                 if (targetUrl.startsWith("intent:")) {
                                     intent = Intent.parseUri(targetUrl, Intent.URI_INTENT_SCHEME);
@@ -140,15 +142,24 @@ public class MainActivity extends AppCompatActivity {
                                     intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
                                 }
                                 startActivity(intent);
-                            } catch (Exception ignored) {}
-                            return true;
-                        }
-                        
-                        try {
-                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
-                            startActivity(intent);
+                            } else {
+                                // Adsterra Popunder link ko external Chrome/browser me open karein
+                                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
+                                startActivity(intent);
+                            }
+                            v.destroy(); // Memory leak se bachane ke liye
                         } catch (Exception ignored) {}
                         return true;
+                    }
+
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
+                        return handleUrl(v, request.getUrl().toString());
+                    }
+
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                        return handleUrl(v, url);
                     }
                 });
 
@@ -467,7 +478,6 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     Toast.makeText(MainActivity.this, "Downloading latest update...", Toast.LENGTH_SHORT).show();
 
-                    // Android System DownloadManager setup
                     DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
                     request.setTitle("Atomix Miner Update");
                     request.setDescription("Downloading latest version APK...");
@@ -481,7 +491,6 @@ public class MainActivity extends AppCompatActivity {
                     if (dm != null) {
                         dm.enqueue(request);
 
-                        // Broadcast Receiver: Download complete hone par automatically install open karega
                         BroadcastReceiver onComplete = new BroadcastReceiver() {
                             @Override
                             public void onReceive(Context context, Intent intent) {
@@ -511,7 +520,6 @@ public class MainActivity extends AppCompatActivity {
                                         startActivity(installIntent);
                                     }
                                 } catch (Exception e) {
-                                    // FileProvider issue fallback: direct browser se download open kar do
                                     try {
                                         Intent fallbackIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
                                         fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -528,13 +536,11 @@ public class MainActivity extends AppCompatActivity {
                             ContextCompat.RECEIVER_EXPORTED
                         );
                     } else {
-                        // Fallback: Default Browser
                         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
                         browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(browserIntent);
                     }
                 } catch (Exception e) {
-                    // Safe browser download fallback
                     try {
                         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
                         browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
