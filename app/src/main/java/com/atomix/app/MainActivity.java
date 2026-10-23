@@ -15,7 +15,6 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
-import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -24,7 +23,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
-import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -56,8 +54,8 @@ public class MainActivity extends AppCompatActivity {
     private final String APP_URL = "https://atomix-one.vercel.app/";
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
-    // ⭐ HILLTOPADS / MONETAG DIRECT AD LINK
-    private final String HILLTOP_DIRECT_LINK = "https://uplcm.com/4/12028803"; 
+    // Monetag Direct Link (Task Rewards ke liye)
+    private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
     private GoogleSignInClient mGoogleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
@@ -66,13 +64,13 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // 1. Hardware Acceleration (Video Slider, Canvas aur Rig Animations ke liye zaroori)
+        // Hardware Acceleration
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         );
 
-        // 2. CHECK VPN AT APP LAUNCH
+        // CHECK VPN AT APP LAUNCH
         if (isVpnConnected()) {
             showVpnBlockScreen();
             return;
@@ -81,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
         webView = new WebView(this);
         setContentView(webView);
 
-        // 3. Google Native Sign-In Setup
+        // 1. Google Native Sign-In Setup
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(WEB_CLIENT_ID)
                 .requestEmail()
@@ -96,7 +94,7 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // 4. ⭐ WEBVIEW SETTINGS - OPTIMIZED FOR HILLTOPADS & ADS ⭐
+        // 2. WebView Settings
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
@@ -106,29 +104,20 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
 
-        // Popups, Multi-Window aur Mixed Content Allow
+        // Popups and Windows Settings (Adsterra & Ads ke liye zaroori)
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setSupportMultipleWindows(true);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        webSettings.setUserAgentString(WebSettings.getDefaultUserAgent(this));
 
-        // ⭐ BYPASS HILLTOPADS WEBVIEW BLOCK (Real Mobile Chrome User-Agent Spoofing)
-        String defaultUA = WebSettings.getDefaultUserAgent(this);
-        String chromeUA = defaultUA.replace("; wv", "").replaceAll("Version\\/\\d+\\.\\d+\\s?", "");
-        webSettings.setUserAgentString(chromeUA);
-
-        // ⭐ GOOGLE SAFE BROWSING BYPASS (Ad domains ko drop hone se roktahai)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            webSettings.setSafeBrowsingEnabled(false);
-        }
-
-        // Third Party Cookies Allow
+        // Cookies enable
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // 5. ⭐ WEB CHROME CLIENT: POPUPS, AD WINDOWS & TARGET="_BLANK" HANDLER ⭐
+        // â­ POPUPS & ADSTERRA POPUNDER HANDLER â­
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -136,10 +125,10 @@ public class MainActivity extends AppCompatActivity {
                 WebSettings newSettings = newWebView.getSettings();
                 newSettings.setJavaScriptEnabled(true);
                 newSettings.setDomStorageEnabled(true);
-                newSettings.setUserAgentString(chromeUA);
 
                 newWebView.setWebViewClient(new WebViewClient() {
                     private boolean handleUrl(WebView v, String targetUrl) {
+                        // Empty ya blank URL ko filter karein
                         if (targetUrl == null || targetUrl.isEmpty() || targetUrl.startsWith("about:blank")) {
                             return false;
                         }
@@ -154,11 +143,11 @@ public class MainActivity extends AppCompatActivity {
                                 }
                                 startActivity(intent);
                             } else {
-                                // Adsterra / HilltopAds / Direct Link popups ko external browser me open karein
+                                // Adsterra Popunder link ko external Chrome/browser me open karein
                                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
                                 startActivity(intent);
                             }
-                            v.destroy();
+                            v.destroy(); // Memory leak se bachane ke liye
                         } catch (Exception ignored) {}
                         return true;
                     }
@@ -181,7 +170,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 6. ⭐ WEBVIEW CLIENT: NAVIGATION & EXTERNAL INTENTS ⭐
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
@@ -189,27 +177,22 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                // Ad network CDN certificates ko smoothly proceed karne ke liye
-                handler.proceed();
-            }
-
-            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
 
+                // Check VPN on link clicks too
                 if (isVpnConnected()) {
                     showVpnBlockScreen();
                     return true;
                 }
 
-                // Google Login URL
+                // 1. Google Login Handle
                 if (url.contains("accounts.google.com") || url.contains("firebaseapp.com/__/auth/handler")) {
                     openGoogleSignIn();
                     return true;
                 }
 
-                // External apps (Play Store, Telegram, WhatsApp, Intents)
+                // 2. Play Store, Telegram, WhatsApp, External Intents
                 if (url.startsWith("market:") || url.startsWith("intent:") || url.startsWith("tg:") || 
                     url.startsWith("whatsapp:") || url.contains("play.google.com/store") || 
                     url.contains("t.me/") || url.contains("telegram.me/")) {
@@ -251,7 +234,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 7. Javascript Interface inject karein
         webView.addJavascriptInterface(new WebAppInterface(), "Android");
         webView.loadUrl(APP_URL);
     }
@@ -276,12 +258,13 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    // Full-screen native VPN blocker
     private void showVpnBlockScreen() {
         String vpnHtml = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + "<style>body{background:#050711;color:#ff5c7a;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;box-sizing:border-box}"
             + "h1{font-size:24px;margin-bottom:8px}p{color:#a5b1d9;font-size:14px;max-width:320px;line-height:1.5}"
             + ".btn{background:#2fe08e;color:#05140d;border:none;border-radius:12px;padding:12px 25px;font-weight:800;margin-top:20px;cursor:pointer}</style></head><body>"
-            + "<h1>⛔ VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and restart the app.</p>"
+            + "<h1>â›” VPN Detected!</h1><p>Using VPN/Proxy is not allowed. Please turn off your VPN and restart the app.</p>"
             + "<button class=\"btn\" onclick=\"location.reload()\">RETRY</button></body></html>";
 
         if (webView == null) {
@@ -447,14 +430,12 @@ public class MainActivity extends AppCompatActivity {
         view.loadDataWithBaseURL(APP_URL, offlineHtml, "text/html", "UTF-8", null);
     }
 
-    // 8. ⭐ JAVASCRIPT BRIDGE INTERFACE ⭐
     public class WebAppInterface {
         @JavascriptInterface
         public boolean isVpnActive() {
             return isVpnConnected();
         }
 
-        // ⭐ HILLTOPADS / VIDEO REWARD TRIGGER
         @JavascriptInterface
         public void showAd() {
             runOnUiThread(() -> {
@@ -463,15 +444,12 @@ public class MainActivity extends AppCompatActivity {
                         showVpnBlockScreen();
                         return;
                     }
-                    
-                    // Direct Link external browser me open karein
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(HILLTOP_DIRECT_LINK));
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(MONETAG_DIRECT_LINK));
                     startActivity(intent);
 
-                    // Webview JS ko batayein ki ad complete ho gaya
                     webView.evaluateJavascript("javascript:if(window.onAndroidAdFinished){window.onAndroidAdFinished(true);}", null);
                 } catch (Exception e) {
-                    Toast.makeText(MainActivity.this, "Failed to load Ad", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Failed to open Ad Link", Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -493,6 +471,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // â­ IN-APP APK DOWNLOAD & AUTO-INSTALLATION METHOD â­
         @JavascriptInterface
         public void downloadAndInstallApk(String apkUrl) {
             runOnUiThread(() -> {
