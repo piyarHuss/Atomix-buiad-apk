@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
     private final String APP_URL = "https://atomix-one.vercel.app/";
     private final String WEB_CLIENT_ID = "268858397066-0t6ak4r1eeqgr53lkdu0r0ge3ru2k99j.apps.googleusercontent.com";
     
-    // Monetag Direct Link (Backup / Fallback ke liye)
+    // Monetag Direct Link (Task Rewards ke liye)
     private final String MONETAG_DIRECT_LINK = "https://uplcm.com/4/12028803";
     
     private GoogleSignInClient mGoogleSignInClient;
@@ -64,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Hardware Acceleration (Smooth Video playback ke liye zaroori)
+        // Hardware Acceleration
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
@@ -94,7 +94,7 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // 2. WebView Settings (HTML5 Video & Ads Support)
+        // 2. WebView Settings
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
@@ -102,9 +102,9 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setLoadsImagesAutomatically(true);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
-        webSettings.setMediaPlaybackRequiresUserGesture(false); // Video bina user gesture ke autoplay hogi
+        webSettings.setMediaPlaybackRequiresUserGesture(false);
 
-        // Popups and Windows Settings (Ads click-through ke liye)
+        // Popups and Windows Settings (Adsterra & Ads ke liye zaroori)
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setSupportMultipleWindows(true);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
@@ -117,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // ⭐ POPUPS & AD CLICKS HANDLER ⭐
+        // ⭐ POPUPS & ADSTERRA POPUNDER HANDLER ⭐
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
@@ -128,6 +128,7 @@ public class MainActivity extends AppCompatActivity {
 
                 newWebView.setWebViewClient(new WebViewClient() {
                     private boolean handleUrl(WebView v, String targetUrl) {
+                        // Empty ya blank URL ko filter karein
                         if (targetUrl == null || targetUrl.isEmpty() || targetUrl.startsWith("about:blank")) {
                             return false;
                         }
@@ -142,11 +143,11 @@ public class MainActivity extends AppCompatActivity {
                                 }
                                 startActivity(intent);
                             } else {
-                                // Ad click link ko external Chrome/browser me open karein
+                                // Adsterra Popunder link ko external Chrome/browser me open karein
                                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
                                 startActivity(intent);
                             }
-                            v.destroy();
+                            v.destroy(); // Memory leak se bachane ke liye
                         } catch (Exception ignored) {}
                         return true;
                     }
@@ -435,7 +436,6 @@ public class MainActivity extends AppCompatActivity {
             return isVpnConnected();
         }
 
-        // ⭐ UPDATED FOR RICHADS PRE-ROLL VAST VIDEO ⭐
         @JavascriptInterface
         public void showAd() {
             runOnUiThread(() -> {
@@ -444,29 +444,12 @@ public class MainActivity extends AppCompatActivity {
                         showVpnBlockScreen();
                         return;
                     }
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(MONETAG_DIRECT_LINK));
+                    startActivity(intent);
 
-                    // WebView modal ke andar RichAds video player chalega
-                    webView.evaluateJavascript(
-                        "javascript:(function(){" +
-                        "  if (typeof window.playRichAdsVideoAd === 'function') {" +
-                        "    window.playRichAdsVideoAd(function(success) {" +
-                        "      if (typeof window.onAndroidAdFinished === 'function') {" +
-                        "        window.onAndroidAdFinished(success);" +
-                        "      }" +
-                        "    });" +
-                        "  } else if (typeof window.onAndroidAdFinished === 'function') {" +
-                        "    window.onAndroidAdFinished(true);" +
-                        "  }" +
-                        "})();",
-                        null
-                    );
+                    webView.evaluateJavascript("javascript:if(window.onAndroidAdFinished){window.onAndroidAdFinished(true);}", null);
                 } catch (Exception e) {
-                    // Fallback: Agar kisi wajah se WebView video play na ho sake
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(MONETAG_DIRECT_LINK));
-                        startActivity(intent);
-                        webView.evaluateJavascript("javascript:if(window.onAndroidAdFinished){window.onAndroidAdFinished(true);}", null);
-                    } catch (Exception ignored) {}
+                    Toast.makeText(MainActivity.this, "Failed to open Ad Link", Toast.LENGTH_SHORT).show();
                 }
             });
         }
